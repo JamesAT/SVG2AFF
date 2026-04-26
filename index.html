@@ -55,7 +55,7 @@
 
 <div id="studio-layout">
     <aside class="panel" id="leftPanel" style="width: 280px;">
-        <header>Settings</header>
+        <header>ArcCreate Settings</header>
         <div class="scroll-content">
             <div class="ctrl-card">
                 <label>Base Timing (ms)</label>
@@ -79,7 +79,7 @@
             </div>
 
             <div class="ctrl-card">
-                <label>Flip Axis</label>
+                <label>Flip Axis (Local Center)</label>
                 <div class="checkbox-row">
                     <label><input type="checkbox" id="flipX"> Horiz (X)</label>
                     <label><input type="checkbox" id="flipY"> Vert (Y)</label>
@@ -87,7 +87,11 @@
             </div>
 
             <div class="ctrl-card">
-                <label>X Offset <span class="val-display" id="v_offX">0.50</span></label>
+                <div class="checkbox-row" style="margin-bottom: 8px;">
+                    <label style="font-size: 10px; font-weight: bold; text-transform: uppercase; color: var(--text-dim);">X Offset</label>
+                    <label style="margin-left: auto;"><input type="checkbox" id="snapX"> Snap Center</label>
+                </div>
+                <label><span class="val-display" id="v_offX">0.50</span></label>
                 <input type="range" id="offsetX" min="-4" max="5" step="0.01" value="0.5">
             </div>
 
@@ -149,6 +153,7 @@
     const scaleYInput = document.getElementById('scaleY');
     const offsetXInput = document.getElementById('offsetX');
     const offsetYInput = document.getElementById('offsetY');
+    const snapXCheck = document.getElementById('snapX');
     const linkScale = document.getElementById('linkScale');
     const baseTimeInput = document.getElementById('baseTime');
 
@@ -164,7 +169,7 @@
     let startCx = 0, startCy = 0;
     const handleSize = 8;
 
-    // Handles sidebar width adjustment
+    // Handles sidebar resizing
     function setupResizer(handle, target, isRight) {
         handle.addEventListener('mousedown', (e) => {
             handle.classList.add('active');
@@ -193,7 +198,7 @@
         render();
     }
 
-    // Coordinate conversion from Arcaea space to Screen space
+    // Coordinate conversion: Arcaea Space -> Screen Space
     function toSc(ax, ay) {
         return {
             x: (canvas.width / 2) + camera.x + (ax * camera.zoom),
@@ -201,7 +206,7 @@
         };
     }
 
-    // Visual guide for the Arcaea playfield
+    // Grid and Playfield visual guides
     function drawGrid() {
         ctx.strokeStyle = '#1a1a1a';
         ctx.lineWidth = 1;
@@ -221,26 +226,50 @@
         ctx.fillText("PLAYFIELD", p1.x + 5, p1.y + 15);
     }
 
-    // Sync scaling inputs when Linked checkbox is active
+    // Calculates the average center of all path data to use as a rotation anchor
+    function getSvgCenter() {
+        const subPaths = svgInput.value.split(/(?=[Mm])/g);
+        let count = 0, sumX = 0, sumY = 0;
+        
+        subPaths.forEach(pathStr => {
+            if(!pathStr.trim()) return;
+            try {
+                pathHelper.setAttribute('d', pathStr);
+                const len = pathHelper.getTotalLength();
+                if(len === 0) return;
+                const steps = 10; 
+                for(let i=0; i<=steps; i++) {
+                    const p = pathHelper.getPointAtLength((i/steps) * len);
+                    sumX += p.x; sumY += p.y; count++;
+                }
+            } catch(e){}
+        });
+        return count > 0 ? { x: sumX/count, y: sumY/count } : { x: 0, y: 0 };
+    }
+
+    // Logic to update linked scaling sliders
     scaleXInput.addEventListener('input', () => { if(linkScale.checked) scaleYInput.value = scaleXInput.value; render(); });
     scaleYInput.addEventListener('input', () => { if(linkScale.checked) scaleXInput.value = scaleYInput.value; render(); });
 
-    // Main drawing loop
+    // Main drawing logic
     function render() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         drawGrid();
 
+        const center = getSvgCenter();
         const sx = parseFloat(scaleXInput.value);
         const sy = parseFloat(scaleYInput.value);
         const r = parseFloat(document.getElementById('rotation').value) * Math.PI / 180;
+        
+        if(snapXCheck.checked) offsetXInput.value = "0.50";
         const ox = parseFloat(offsetXInput.value);
         const oy = parseFloat(offsetYInput.value);
+        
         const steps = parseInt(document.getElementById('steps').value);
         const flipX = document.getElementById('flipX').checked;
         const flipY = document.getElementById('flipY').checked;
         const time = parseInt(baseTimeInput.value) || 1000;
 
-        // Sync numeric UI displays
         document.getElementById('v_scaleX').innerText = sx.toFixed(6);
         document.getElementById('v_scaleY').innerText = sy.toFixed(6);
         document.getElementById('v_rot').innerText = (r * 180 / Math.PI).toFixed(0);
@@ -250,7 +279,6 @@
 
         const subPaths = svgInput.value.split(/(?=[Mm])/g);
         let affLines = [];
-        
         let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
 
         ctx.strokeStyle = '#00f2ff';
@@ -258,7 +286,6 @@
         ctx.lineJoin = 'round';
         ctx.lineCap = 'round';
 
-        // Render path components
         subPaths.forEach(pathStr => {
             if(!pathStr.trim()) return;
             try {
@@ -270,14 +297,17 @@
                 ctx.beginPath();
                 for(let i=0; i <= steps; i++) {
                     const raw = pathHelper.getPointAtLength((i/steps) * len);
-                    let nx = raw.x * sx;
-                    let ny = raw.y * sy;
                     
-                    if(flipX) nx *= -1;
-                    if(flipY) ny *= -1;
+                    // Transformation: Center the shape locally first
+                    let lx = (raw.x - center.x) * sx;
+                    let ly = (raw.y - center.y) * sy;
                     
-                    const rx = nx * Math.cos(r) - ny * Math.sin(r);
-                    const ry = nx * Math.sin(r) + ny * Math.cos(r);
+                    if(flipX) lx *= -1;
+                    if(flipY) ly *= -1;
+                    
+                    // Rotate and Offset relative to the local center anchor
+                    const rx = lx * Math.cos(r) - ly * Math.sin(r);
+                    const ry = lx * Math.sin(r) + ly * Math.cos(r);
                     const fx = rx + ox, fy = -ry + oy;
                     const sc = toSc(fx, fy);
 
@@ -297,27 +327,18 @@
         
         affOutput.value = affLines.join('\n');
 
-        // Draw selection box around rendered shape
+        // Bounding box for interaction
         if(minX !== Infinity) {
             minX -= 5; minY -= 5; maxX += 5; maxY += 5;
             bbox = { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
-
             ctx.strokeStyle = 'rgba(118, 84, 255, 0.8)';
             ctx.setLineDash([4, 4]);
             ctx.lineWidth = 1;
             ctx.strokeRect(bbox.x, bbox.y, bbox.w, bbox.h);
             ctx.setLineDash([]);
-
             ctx.fillStyle = '#00f2ff';
-            const hs = handleSize;
-            const hsHalf = hs/2;
-            [
-                {x: bbox.x, y: bbox.y}, 
-                {x: bbox.x + bbox.w, y: bbox.y},
-                {x: bbox.x, y: bbox.y + bbox.h},
-                {x: bbox.x + bbox.w, y: bbox.y + bbox.h}
-            ].forEach(p => {
-                ctx.fillRect(p.x - hsHalf, p.y - hsHalf, hs, hs);
+            [{x: bbox.x, y: bbox.y}, {x: bbox.x + bbox.w, y: bbox.y}, {x: bbox.x, y: bbox.y + bbox.h}, {x: bbox.x + bbox.w, y: bbox.y + bbox.h}].forEach(p => {
+                ctx.fillRect(p.x - handleSize/2, p.y - handleSize/2, handleSize, handleSize);
             });
         } else {
             bbox = { x: 0, y: 0, w: 0, h: 0 };
@@ -331,10 +352,7 @@
 
     function isOverHandle(pos) {
         const hsHalf = handleSize / 2 + 2;
-        const corners = [
-            {x: bbox.x, y: bbox.y}, {x: bbox.x + bbox.w, y: bbox.y},
-            {x: bbox.x, y: bbox.y + bbox.h}, {x: bbox.x + bbox.w, y: bbox.y + bbox.h}
-        ];
+        const corners = [{x: bbox.x, y: bbox.y}, {x: bbox.x + bbox.w, y: bbox.y}, {x: bbox.x, y: bbox.y + bbox.h}, {x: bbox.x + bbox.w, y: bbox.y + bbox.h}];
         return corners.some(c => pos.x >= c.x - hsHalf && pos.x <= c.x + hsHalf && pos.y >= c.y - hsHalf && pos.y <= c.y + hsHalf);
     }
 
@@ -342,80 +360,50 @@
         return pos.x >= bbox.x && pos.x <= bbox.x + bbox.w && pos.y >= bbox.y && pos.y <= bbox.y + bbox.h;
     }
 
-    // Mouse input listeners
+    // Input interaction listeners
     viewport.addEventListener('mousedown', e => {
         const pos = getMousePos(e);
-        
-        // Right click pans the viewport
-        if(e.button === 2 || e.ctrlKey) {
-            interactMode = 'pan';
-            lastMouse = pos;
-            return;
-        }
-
-        // Left click initiates transform
+        if(e.button === 2 || e.ctrlKey) { interactMode = 'pan'; lastMouse = pos; return; }
         if(e.button === 0 && bbox.w > 0) {
             if(isOverHandle(pos)) {
-                interactMode = 'resize';
-                lastMouse = pos;
-                startScaleX = parseFloat(scaleXInput.value);
-                startScaleY = parseFloat(scaleYInput.value);
-                startCx = bbox.x + bbox.w/2;
-                startCy = bbox.y + bbox.h/2;
-                startDistX = Math.abs(pos.x - startCx) || 1; 
-                startDistY = Math.abs(pos.y - startCy) || 1;
+                interactMode = 'resize'; lastMouse = pos;
+                startScaleX = parseFloat(scaleXInput.value); startScaleY = parseFloat(scaleYInput.value);
+                startCx = bbox.x + bbox.w/2; startCy = bbox.y + bbox.h/2;
+                startDistX = Math.abs(pos.x - startCx) || 1; startDistY = Math.abs(pos.y - startCy) || 1;
             } else if (isOverBox(pos)) {
-                interactMode = 'move';
-                lastMouse = pos;
+                interactMode = 'move'; lastMouse = pos;
             }
         }
     });
 
     window.addEventListener('mousemove', e => {
         const pos = getMousePos(e);
-        
         if(interactMode === 'none') {
             if(bbox.w > 0 && isOverHandle(pos)) canvas.style.cursor = 'nwse-resize';
             else if(bbox.w > 0 && isOverBox(pos)) canvas.style.cursor = 'move';
             else canvas.style.cursor = 'crosshair';
         }
-
         if(interactMode === 'pan') {
-            camera.x += (pos.x - lastMouse.x);
-            camera.y += (pos.y - lastMouse.y);
-            lastMouse = pos;
-            render();
+            camera.x += (pos.x - lastMouse.x); camera.y += (pos.y - lastMouse.y);
+            lastMouse = pos; render();
         } 
         else if(interactMode === 'move') {
-            const dxScreen = pos.x - lastMouse.x;
-            const dyScreen = pos.y - lastMouse.y;
-            const dxArc = dxScreen / camera.zoom;
-            const dyArc = -(dyScreen / camera.zoom); 
-
-            offsetXInput.value = (parseFloat(offsetXInput.value) + dxArc).toFixed(3);
+            const dxArc = (pos.x - lastMouse.x) / camera.zoom;
+            const dyArc = -((pos.y - lastMouse.y) / camera.zoom); 
+            if(!snapXCheck.checked) offsetXInput.value = (parseFloat(offsetXInput.value) + dxArc).toFixed(3);
             offsetYInput.value = (parseFloat(offsetYInput.value) + dyArc).toFixed(3);
-            lastMouse = pos;
-            render();
+            lastMouse = pos; render();
         }
         else if(interactMode === 'resize') {
-            const currentDistX = Math.abs(pos.x - startCx);
-            const currentDistY = Math.abs(pos.y - startCy);
-            
-            let newScaleX = startScaleX * (currentDistX / startDistX);
-            let newScaleY = startScaleY * (currentDistY / startDistY);
-
-            newScaleX = Math.max(0.000001, newScaleX);
-            newScaleY = Math.max(0.000001, newScaleY);
-
+            const ratioX = Math.abs(pos.x - startCx) / startDistX;
+            const ratioY = Math.abs(pos.y - startCy) / startDistY;
             if(linkScale.checked) {
-                const ratioX = currentDistX / startDistX;
-                const ratioY = currentDistY / startDistY;
-                const bestRatio = Math.max(ratioX, ratioY);
-                scaleXInput.value = (startScaleX * bestRatio).toFixed(6);
-                scaleYInput.value = (startScaleY * bestRatio).toFixed(6);
+                const best = Math.max(ratioX, ratioY);
+                scaleXInput.value = (startScaleX * best).toFixed(6);
+                scaleYInput.value = (startScaleY * best).toFixed(6);
             } else {
-                scaleXInput.value = newScaleX.toFixed(6);
-                scaleYInput.value = newScaleY.toFixed(6);
+                scaleXInput.value = Math.max(0.000001, startScaleX * ratioX).toFixed(6);
+                scaleYInput.value = Math.max(0.000001, startScaleY * ratioY).toFixed(6);
             }
             render();
         }
@@ -423,13 +411,7 @@
 
     window.addEventListener('mouseup', () => { interactMode = 'none'; canvas.style.cursor = 'crosshair'; });
     viewport.addEventListener('contextmenu', e => e.preventDefault());
-    
-    viewport.addEventListener('wheel', e => { 
-        e.preventDefault(); 
-        camera.zoom *= (e.deltaY < 0 ? 1.1 : 0.9); 
-        render(); 
-    }, {passive: false});
-
+    viewport.addEventListener('wheel', e => { e.preventDefault(); camera.zoom *= (e.deltaY < 0 ? 1.1 : 0.9); render(); }, {passive: false});
     window.addEventListener('resize', resizeCanvas);
 
     document.querySelectorAll('input, textarea').forEach(el => {
@@ -441,8 +423,7 @@
         if(!file) return;
         const reader = new FileReader();
         reader.onload = ev => {
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(ev.target.result, "image/svg+xml");
+            const doc = new DOMParser().parseFromString(ev.target.result, "image/svg+xml");
             const paths = Array.from(doc.querySelectorAll('path')).map(p => p.getAttribute('d')).filter(d => d).join(' ');
             svgInput.value = paths;
             render();
@@ -451,8 +432,7 @@
     };
 
     function copyAff() {
-        affOutput.select();
-        document.execCommand('copy');
+        affOutput.select(); document.execCommand('copy');
         const btn = document.querySelector('button[onclick="copyAff()"]');
         btn.innerText = "✅ Copied!";
         setTimeout(() => btn.innerText = "📋 Copy Result", 1500);
