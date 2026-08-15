@@ -5,7 +5,7 @@
 
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SVG to .aff - ArcCreate</title>
+    <title>SVG to .aff - ArcCreate v2.0</title>
     <style>
         :root {
             --bg: #0a0a0c;
@@ -260,6 +260,7 @@
     <aside class="panel" id="leftPanel" style="width: 280px;">
         <header>
             <span>Settings</span>
+            <button class="secondary sm" onclick="toggleAboutModal(true)" data-tooltip="Version, credits and info">About v2.0</button>
         </header>
         <div class="scroll-content">
             
@@ -276,7 +277,7 @@
                 <label>Theme</label>
                 <select id="themeSelect" onchange="changeTheme(this.value)">
                     <optgroup label="Dark Themes">
-                        <option value="arcaea">Arcaea Dark (Default)</option>
+                        <option value="defaultTheme">Default</option>
                         <option value="cyberpunk">Cyberpunk Cyan</option>
                         <option value="oled">OLED Pitch Black</option>
                         <option value="synthwave">Synthwave Neon</option>
@@ -409,7 +410,7 @@
                 <span id="lineCount" style="color: var(--text-dim); text-transform: none;">0 lines</span>
             </label>
             
-            <div id="warning-banner">High complexity! (>1000 lines generated)</div>
+            <div id="warning-banner">High complexity! (>650 lines generated)</div>
             <textarea id="affOutput" readonly style="flex-grow:1;"></textarea>
             
             <button onclick="copyAff()" data-tooltip="Copy all generated .aff lines to clipboard">Copy Output</button>
@@ -417,7 +418,7 @@
     </aside>
 </div>
 
-<!-- Single Instructions Modal -->
+<!-- Instructions Modal -->
 <div class="modal-overlay" id="instructionModal">
     <div class="modal-card">
         <div class="modal-header">
@@ -458,6 +459,38 @@
     </div>
 </div>
 
+<!-- About / Info Modal -->
+<div class="modal-overlay" id="aboutModal">
+    <div class="modal-card">
+        <div class="modal-header">
+            <span>About &amp; Info (v2.0)</span>
+            <button class="modal-close" onclick="toggleAboutModal(false)">✕</button>
+        </div>
+        <div class="modal-body">
+            <div class="instruction-section">
+                <h4>SVG to .aff Converter</h4>
+                <p style="margin: 0; color: var(--text-dim);">A high-performance standalone web utility designed to sample vector SVG paths and convert them into Arcaea chart format (<code>.aff</code>) in real time.</p>
+            </div>
+
+            <div class="instruction-section">
+                <h4>Credits &amp; Technology Attributions</h4>
+                <ul>
+                    <li><strong>Created &amp;Tested by:</strong> Exiony (aka. James)</li>
+                    <li><strong>Target Editor:</strong> Designed for workflow integration with <a href="https://github.com/Arcthesia/ArcCreate" target="_blank">ArcCreate</a> by Arcthesia.</li>
+                    <li><strong>SVG DOM Path Sampling:</strong> Standard W3C SVG 1.1 Specification (<code>SVGPathElement.getPointAtLength()</code> API).</li>
+                    <li><strong>Graphics &amp; Layout Engine:</strong> HTML5 Canvas 2D Context API &amp; W3C DOMParser.</li>
+                    <li><strong>Algorithms:</strong> Cached bounding-box geometric centering, debounced string compilation, interactive camera space transformation matrix.</li>
+                </ul>
+            </div>
+
+            <div class="instruction-section">
+                <h4>Disclaimer &amp; Trademark Notice</h4>
+                <p style="margin: 0; color: var(--text-dim);">This content has no affiliation with, endorsement from, or association with <strong>Arcaea</strong>, <strong>lowiro limited</strong>, or any related entities. <strong>Arcaea</strong> is a registered trademark owned by <strong>lowiro limited</strong>, and we are not associated with them in any way.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="tooltip" id="tooltip"></div>
 
 <svg style="display:none;"><path id="pathHelper"></path></svg>
@@ -465,7 +498,7 @@
 <script>
     // --- Themes ---
     const presetThemes = {
-        arcaea: {
+        defaultTheme: {
             '--bg': '#0a0a0c',
             '--panel': '#141418',
             '--card': '#1c1c24',
@@ -591,7 +624,7 @@
         for (let key in theme) {
             document.documentElement.style.setProperty(key, theme[key]);
         }
-        render();
+        scheduleRender();
     }
 
     function applyCustomTheme() {
@@ -610,7 +643,7 @@
         document.documentElement.style.setProperty('--playfield', playfield);
         document.documentElement.style.setProperty('--text-main', text);
         document.documentElement.style.setProperty('--border', accent + '44');
-        render();
+        scheduleRender();
     }
 
     // Modal Control Logic
@@ -621,6 +654,15 @@
     }
     document.getElementById('instructionModal').addEventListener('click', (e) => {
         if (e.target.id === 'instructionModal') toggleModal(false);
+    });
+
+    function toggleAboutModal(show) {
+        const modal = document.getElementById('aboutModal');
+        if (show) modal.classList.add('active');
+        else modal.classList.remove('active');
+    }
+    document.getElementById('aboutModal').addEventListener('click', (e) => {
+        if (e.target.id === 'aboutModal') toggleAboutModal(false);
     });
 
     // Tooltip System
@@ -675,6 +717,13 @@
     let lastMouse = { x: 0, y: 0 };
     let bbox = { x: 0, y: 0, w: 0, h: 0 };
     
+    // Performance State & Caching
+    let cachedCenter = null;
+    let renderRequested = false;
+    let affDebounceTimer = null;
+    let pendingAffText = "";
+    let pendingLineCount = 0;
+
     // Transformation State
     let startScaleX = 0, startScaleY = 0;
     let startDistX = 0, startDistY = 0;
@@ -706,7 +755,7 @@
     function resizeCanvas() {
         canvas.width = viewport.clientWidth;
         canvas.height = viewport.clientHeight;
-        render();
+        scheduleRender();
     }
 
     function toSc(ax, ay) {
@@ -760,8 +809,10 @@
         ctx.restore();
     }
 
-    // Calculated via raw SVG bounding box midpoint
+    // Cached SVG Bounding-Box Midpoint Calculation
     function getSvgCenter() {
+        if (cachedCenter) return cachedCenter;
+        
         const subPaths = svgInput.value.split(/(?=[Mm])/g);
         let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
         
@@ -781,11 +832,50 @@
                 }
             } catch(e){}
         });
-        return minX !== Infinity ? { x: (minX + maxX) / 2, y: (minY + maxY) / 2 } : { x: 0, y: 0 };
+        
+        cachedCenter = minX !== Infinity ? { x: (minX + maxX) / 2, y: (minY + maxY) / 2 } : { x: 0, y: 0 };
+        return cachedCenter;
     }
 
-    scaleXInput.addEventListener('input', () => { if(linkScale.checked) scaleYInput.value = scaleXInput.value; render(); });
-    scaleYInput.addEventListener('input', () => { if(linkScale.checked) scaleXInput.value = scaleYInput.value; render(); });
+    function invalidateCenterCache() {
+        cachedCenter = null;
+    }
+
+    scaleXInput.addEventListener('input', () => { if(linkScale.checked) scaleYInput.value = scaleXInput.value; scheduleRender(); });
+    scaleYInput.addEventListener('input', () => { if(linkScale.checked) scaleXInput.value = scaleYInput.value; scheduleRender(); });
+
+    function scheduleRender(immediateText = false) {
+        if (!renderRequested) {
+            renderRequested = true;
+            requestAnimationFrame(() => {
+                renderRequested = false;
+                render();
+            });
+        }
+        scheduleAffTextUpdate(immediateText);
+    }
+
+    function scheduleAffTextUpdate(immediate = false) {
+        if (immediate) {
+            clearTimeout(affDebounceTimer);
+            flushAffText();
+        } else {
+            clearTimeout(affDebounceTimer);
+            affDebounceTimer = setTimeout(flushAffText, 100);
+        }
+    }
+
+    function flushAffText() {
+        affOutput.value = pendingAffText;
+        lineCountDisplay.innerText = `${pendingLineCount} lines`;
+        if (pendingLineCount > 650) {
+            warningBanner.style.display = 'block';
+            lineCountDisplay.style.color = 'var(--danger)';
+        } else {
+            warningBanner.style.display = 'none';
+            lineCountDisplay.style.color = 'var(--text-dim)';
+        }
+    }
 
     function render() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -862,17 +952,8 @@
             } catch(err) {}
         });
         
-        affOutput.value = affLines.join('\n');
-        
-        const linesGenerated = affLines.length;
-        lineCountDisplay.innerText = `${linesGenerated} lines`;
-        if (linesGenerated > 1000) {
-            warningBanner.style.display = 'block';
-            lineCountDisplay.style.color = 'var(--danger)';
-        } else {
-            warningBanner.style.display = 'none';
-            lineCountDisplay.style.color = 'var(--text-dim)';
-        }
+        pendingAffText = affLines.join('\n');
+        pendingLineCount = affLines.length;
 
         if(minX !== Infinity) {
             minX -= 6; minY -= 6; maxX += 6; maxY += 6;
@@ -948,14 +1029,14 @@
         }
         if(interactMode === 'pan') {
             camera.x += (pos.x - lastMouse.x); camera.y += (pos.y - lastMouse.y);
-            lastMouse = pos; render();
+            lastMouse = pos; scheduleRender();
         } 
         else if(interactMode === 'move') {
             const dxArc = (pos.x - lastMouse.x) / camera.zoom;
             const dyArc = -((pos.y - lastMouse.y) / camera.zoom); 
             if(!snapXCheck.checked) offsetXInput.value = (parseFloat(offsetXInput.value) + dxArc).toFixed(3);
             offsetYInput.value = (parseFloat(offsetYInput.value) + dyArc).toFixed(3);
-            lastMouse = pos; render();
+            lastMouse = pos; scheduleRender();
         }
         else if(interactMode === 'resize') {
             const ratioX = Math.abs(pos.x - startCx) / startDistX;
@@ -968,21 +1049,29 @@
                 scaleXInput.value = Math.max(0.000001, startScaleX * ratioX).toFixed(6);
                 scaleYInput.value = Math.max(0.000001, startScaleY * ratioY).toFixed(6);
             }
-            render();
+            scheduleRender();
         }
     });
 
     window.addEventListener('mouseup', () => { 
+        if (interactMode !== 'none') {
+            scheduleAffTextUpdate(true);
+        }
         interactMode = 'none'; 
         canvas.style.cursor = 'crosshair'; 
     });
 
     viewport.addEventListener('contextmenu', e => e.preventDefault());
-    viewport.addEventListener('wheel', e => { e.preventDefault(); camera.zoom *= (e.deltaY < 0 ? 1.1 : 0.9); render(); }, {passive: false});
+    viewport.addEventListener('wheel', e => { e.preventDefault(); camera.zoom *= (e.deltaY < 0 ? 1.1 : 0.9); scheduleRender(); }, {passive: false});
     window.addEventListener('resize', resizeCanvas);
 
-    document.querySelectorAll('input, textarea').forEach(el => {
-        if(el.id !== 'scaleX' && el.id !== 'scaleY') el.addEventListener('input', render);
+    svgInput.addEventListener('input', () => {
+        invalidateCenterCache();
+        scheduleRender();
+    });
+
+    document.querySelectorAll('input:not(#svgInput), textarea:not(#svgInput)').forEach(el => {
+        if(el.id !== 'scaleX' && el.id !== 'scaleY') el.addEventListener('input', () => scheduleRender());
     });
 
     function processSvgFile(file) {
@@ -996,7 +1085,8 @@
                 return;
             }
             svgInput.value = paths;
-            render();
+            invalidateCenterCache();
+            scheduleRender(true);
         };
         reader.readAsText(file);
     }
@@ -1034,14 +1124,15 @@
     });
 
     function copyAff() {
+        flushAffText();
         affOutput.select(); document.execCommand('copy');
         const btn = document.querySelector('button[onclick="copyAff()"]');
         btn.innerHTML = "Copied!";
         setTimeout(() => btn.innerHTML = "Copy Output", 1500);
     }
 
-    render();
-    resizeCanvas();
+    scheduleRender(true);
+    resizeCanvas();g
 </script>
 </body>
 </html>
