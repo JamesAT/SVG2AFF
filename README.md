@@ -10,13 +10,19 @@ This is a lightweight, single-file web utility designed to convert SVG vector pa
 
 * **Real-Time Visual Canvas:** See your shapes mapped instantly onto an Arcaea playfield grid[^1] with click-and-drag scaling, positioning, and panning.
 * **Photoshop-Style Layers Mode:** Import several SVG files or make blank layers to handle vectors separately, with choices to export just the active layer or merge all visible layers together.
-* **Drag-and-Drop SVG Import:** Drop single or multiple `.svg` files right onto the workspace window to load path data automatically.
-* **Text-to-Path & Shape Library:** Type custom text strings to instantly vectorize them using `opentype.js`, or pick from a library of built-in geometric shapes and arrows.
-* **3D Perspective & Transforms:** Fine-tune your arcs using scaling, 3D pitch/yaw tilt controls, axis flipping, center-snapping, and point-reduction simplification to keep line counts optimized.
-* **History & Persistence:** Full undo/redo (`Ctrl+Z` / `Ctrl+Y`) support paired with local storage autosaving so you never lose your progress.
-* **Customizable Themes:** Switch between multiple dark/light themes, high-contrast colorblind modes, or custom accent pickers.
+* **Text Vectorization & Shape Library:** Type custom text to turn fonts into arc paths automatically, or choose from a library of basic geometric shapes, arrows, and symbols.
+* **Path Optimization:** Control sampling density and apply Ramer–Douglas–Peucker (RDP) simplification to eliminate extra control points, keeping chart line counts optimized.
+* **Workflow Utilities:** Drag-and-drop file imports, keyboard nudging, full undo/redo history (`Ctrl+Z` / `Ctrl+Y`), autosaving to local storage, customizable UI themes, and colorblind mode support.
 
 <small>(Images will come later)</small>
+
+## How to Use it
+
+1. Open the [SVG2AFF](https://jamesat.github.io/SVG2AFF)
+2. Import an SVG, generate text paths, or pick a built-in shape preset.
+3. Fine-tune scale, tilt, complexity, and offset using the visual canvas.
+4. Click **Copy Output** to grab the generated `.aff` arc lines.
+5. Paste the output into the raw text editing tab (< >) in ArcCreate or directly into your `.aff` chart file.
 
 ---
 
@@ -33,15 +39,16 @@ Since this project is contained within a single standalone HTML file, sharing or
 ## Disclaimer & AI Assistance Note
 
 * **AI Assistance:** Portions of the code structure, layout layout logic, and feature enhancements for this project were developed with the assistance of AI tools. However, the code has been thoroughly tested, reviewed, and refined to ensure stability, proper layout constraints, and a bug-free user experience.
-* **Trademark Notice:** This tool is an independent fan-made project and has no affiliation with, endorsement from, or association with Arcaea or lowiro limited. Arcaea is a registered trademark of lowiro limited.
+* **Trademark Notice:** This tool is an independent fan-made project and has no affiliation with, endorsement from, or association with **Arcaea** or **lowiro limited**. *Arcaea* is a registered trademark of lowiro limited.
 
-## Acknowledgments & Credits
+## Credits & Acknowledgments
 
 * **Target Chart Editor:** Designed for workflow integration with [ArcCreate](https://github.com/Arcthesia/ArcCreate) by Arcthesia.
-* **Core Libraries & Tools:**
-  * **Text-to-Path Engine:** Powered by [opentype.js](https://opentype.js.org/) for font parsing.
-  * **Path Design Reference:** Uses concepts compatible with the [SVG Path Editor](https://yqnn.github.io/svg-path-editor/).
-  * **Path Sampling:** Built on the standard W3C SVG 1.1 Specification (`SVGPathElement.getPointAtLength()`).
-  * **Rendering & Parsing:** HTML5 Canvas 2D Context API and W3C DOMParser.
+* **Text-to-Path Engine:** Powered by [opentype.js](https://opentype.js.org/) by Frederik De Bleser.
+* **Default Font:** Uses [Roboto Regular](https://fonts.google.com/specimen/Roboto) by Christian Robertson (Google Fonts).
+* **Path Optimization:** Implements the [Ramer–Douglas–Peucker (RDP) Algorithm](https://en.wikipedia.org/wiki/Ramer%E2%80%93Douglas%E2%80%93Peucker_algorithm) for line reduction.
+* **Path Design Reference:** Integrated workflow compatibility with [SVG Path Editor](https://yqnn.github.io/svg-path-editor/) by yqnn.
+* **Standards & Web APIs:** HTML5 Canvas 2D API, W3C DOMParser, and W3C SVG 1.1 Specification (`SVGPathElement.getPointAtLength()`).
+  
 
  [^1]: The playfield grid does not match the real game grid perfectly, so you may need to adjust it. An update fixing this might come later.
