@@ -2,7 +2,7 @@
 
 ## About Me
 
-This is a lightweight, single-file web utility designed to convert SVG vector paths and shape files into Arcaea chart format (`.aff`) in real time. It features an interactive visual canvas preview, a built-in shape library, text-to-path generation, and a multi-layer workspace mode so you can map out complex chart elements quickly without manual coordinate math.
+This is a lightweight, single-file web utility designed to convert SVG vector paths and shape files into Arcaea chart format (`.aff`) in real time. It features an interactive visual canvas preview, a built-in shape library, text-to-path generation, and a multi-layer workspace mode designed to separate and organize SVG elements quickly without exporting SVGs individually.
 
 ---
 
