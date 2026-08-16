@@ -1,11 +1,11 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<link rel="icon" type="image/x-icon" href="favicon.ico">
-
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SVG to .aff - ArcCreate v2.0</title>
+    <title>SVG to .aff Converter</title>
+    <!-- opentype.js for Text-to-Path Vectorization -->
+    <script src="https://cdn.jsdelivr.net/npm/opentype.js@1.3.4/dist/opentype.min.js"></script>
     <style>
         :root {
             --bg: #0a0a0c;
@@ -24,65 +24,94 @@
         }
 
         /* Custom Scrollbars */
-        ::-webkit-scrollbar {
-            width: 7px;
-            height: 7px;
-        }
-        ::-webkit-scrollbar-track {
-            background: var(--bg);
-        }
-        ::-webkit-scrollbar-thumb {
-            background: var(--border);
-            border-radius: 4px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: var(--accent);
-        }
-        * {
-            scrollbar-width: thin;
-            scrollbar-color: var(--border) var(--bg);
-        }
+        ::-webkit-scrollbar { width: 7px; height: 7px; }
+        ::-webkit-scrollbar-track { background: var(--bg); }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+        * { scrollbar-width: thin; scrollbar-color: var(--border) var(--bg); box-sizing: border-box; }
 
         body { font-family: 'Inter', -apple-system, sans-serif; background: var(--bg); color: var(--text-main); margin: 0; display: flex; height: 100vh; overflow: hidden; user-select: none; }
         #studio-layout { display: flex; width: 100%; height: 100%; }
-        .panel { background: var(--panel); display: flex; flex-direction: column; min-width: 200px; max-width: 600px; z-index: 10; border-color: var(--border); }
+        .panel { background: var(--panel); display: flex; flex-direction: column; min-width: 230px; max-width: 600px; z-index: 10; border-color: var(--border); }
         
-        header { padding: 14px 20px; background: rgba(0,0,0,0.15); border-bottom: 1px solid var(--border); font-size: 13px; font-weight: 700; text-transform: uppercase; color: var(--text-main); letter-spacing: 1px; display: flex; align-items: center; justify-content: space-between; }
-        .scroll-content { padding: 20px; overflow-y: auto; flex-grow: 1; display: flex; flex-direction: column; gap: 15px; }
-        .viewport { flex: 1; background: var(--viewport-bg); position: relative; cursor: default; }
+        /* Panel Headers */
+        header { 
+            padding: 10px 14px; 
+            background: rgba(0,0,0,0.15); 
+            border-bottom: 1px solid var(--border); 
+            font-size: 11px; 
+            font-weight: 700; 
+            text-transform: uppercase; 
+            color: var(--text-main); 
+            letter-spacing: 0.5px; 
+            display: flex; 
+            align-items: center; 
+            justify-content: space-between; 
+            gap: 6px; 
+        }
+        header > span:first-child { flex-shrink: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .header-actions { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+        .icon-btn { width: 24px; height: 24px; padding: 0; flex-shrink: 0; font-size: 12px; line-height: 1; }
+        header button.sm { padding: 4px 8px; font-size: 10px; flex-shrink: 0; }
+
+        .scroll-content { padding: 14px; overflow-y: auto; flex-grow: 1; display: flex; flex-direction: column; gap: 12px; }
+        .viewport { flex: 1; background: var(--viewport-bg); position: relative; cursor: default; overflow: hidden; }
         
         .resizer { width: 4px; cursor: col-resize; background: var(--border); transition: background 0.2s; z-index: 20; }
         .resizer:hover, .resizer.active { background: var(--accent); }
 
-        .ctrl-card { background: var(--card); padding: 14px; border-radius: 8px; border: 1px solid var(--border); }
-        label { display: block; font-size: 10px; color: var(--text-dim); margin-bottom: 8px; font-weight: 700; text-transform: uppercase; }
+        .ctrl-card { background: var(--card); padding: 12px; border-radius: 8px; border: 1px solid var(--border); }
+        label { display: block; font-size: 10px; color: var(--text-dim); margin-bottom: 6px; font-weight: 700; text-transform: uppercase; }
         
-        select, input[type="color"] { background: var(--bg); color: var(--text-main); border: 1px solid var(--border); border-radius: 4px; padding: 6px; font-family: inherit; font-size: 11px; }
-        select { width: 100%; cursor: pointer; }
+        select, input[type="color"], input[type="text"] { background: var(--bg); color: var(--text-main); border: 1px solid var(--border); border-radius: 4px; padding: 6px; font-family: inherit; font-size: 11px; }
+        select, input[type="text"] { width: 100%; box-sizing: border-box; }
 
         .val-display { float: right; color: var(--accent); font-family: monospace; font-size: 11px; }
         input[type="range"] { width: 100%; accent-color: var(--accent); cursor: pointer; margin-top: 4px; }
-        input[type="number"] { width: 100%; background: var(--bg); color: var(--text-main); border: 1px solid var(--border); padding: 8px; border-radius: 4px; font-family: monospace; box-sizing: border-box; }
         
-        /* Modern Theme-Aware Checkboxes */
-        .checkbox-row { display: flex; gap: 15px; align-items: center; }
+        /* Theme-Adapted Number Inputs */
+        input[type="number"] { 
+            width: 100%; 
+            background: var(--bg); 
+            color: var(--text-main); 
+            border: 1px solid var(--border); 
+            padding: 8px; 
+            border-radius: 4px; 
+            font-family: monospace; 
+            box-sizing: border-box; 
+        }
+        input[type="number"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button {
+            opacity: 0.6;
+            filter: invert(0.85);
+            cursor: pointer;
+        }
+        input[type="number"]::-webkit-inner-spin-button:hover,
+        input[type="number"]::-webkit-outer-spin-button:hover {
+            opacity: 1;
+        }
+
+        /* Checkbox Rows */
+        .checkbox-row { display: flex; gap: 8px; align-items: center; justify-content: space-between; flex-wrap: nowrap; }
         .checkbox-label {
-            display: flex;
+            display: inline-flex;
             align-items: center;
-            gap: 8px;
+            gap: 6px;
             cursor: pointer;
             color: var(--text-main);
-            font-size: 11px;
+            font-size: 10px;
             font-weight: 500;
             user-select: none;
             margin-bottom: 0;
             text-transform: none;
+            white-space: nowrap;
+            flex-shrink: 0;
         }
         .checkbox-label input[type="checkbox"] {
             appearance: none;
             -webkit-appearance: none;
-            width: 15px;
-            height: 15px;
+            width: 14px;
+            height: 14px;
             border: 1px solid var(--border);
             border-radius: 4px;
             background: var(--bg);
@@ -91,6 +120,7 @@
             outline: none;
             transition: background 0.2s, border-color 0.2s;
             margin: 0;
+            flex-shrink: 0;
         }
         .checkbox-label input[type="checkbox"]:checked {
             background: var(--accent);
@@ -99,23 +129,25 @@
         .checkbox-label input[type="checkbox"]:checked::after {
             content: '';
             position: absolute;
-            left: 4px;
-            top: 1px;
+            left: 3px;
+            top: 0px;
             width: 4px;
-            height: 8px;
+            height: 7px;
             border: solid #fff;
             border-width: 0 2px 2px 0;
             transform: rotate(45deg);
         }
 
         textarea { width: 100%; background: var(--bg); color: var(--cyan); border: 1px solid var(--border); border-radius: 6px; padding: 12px; font-family: monospace; font-size: 11px; resize: none; box-sizing: border-box; }
-        button { background: var(--accent); color: white; border: none; padding: 12px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 12px; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px;}
+        button { background: var(--accent); color: white; border: none; padding: 10px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 11px; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 6px;}
         button:hover { background: var(--accent-hover); }
         button.secondary { background: var(--border); color: var(--text-main); }
         button.secondary:hover { opacity: 0.8; }
-        button.sm { padding: 6px 12px; font-size: 11px; }
+        button.danger-btn { background: rgba(255, 68, 68, 0.15); color: var(--danger); border: 1px solid var(--danger); }
+        button.danger-btn:hover { background: var(--danger); color: white; }
+        button.sm { padding: 4px 8px; font-size: 10px; }
         
-        canvas { display: block; }
+        canvas { display: block; width: 100%; height: 100%; }
         
         .ref-link { font-size: 11px; background: var(--bg); padding: 10px; border-radius: 4px; border: 1px solid var(--border); color: var(--text-dim); }
         .ref-link a { color: var(--accent); text-decoration: none; font-weight: bold; }
@@ -129,22 +161,79 @@
         .color-item { display: flex; align-items: center; justify-content: space-between; font-size: 10px; color: var(--text-dim); }
         .color-item input[type="color"] { width: 28px; height: 24px; padding: 0; cursor: pointer; border: none; }
 
-        /* Drag and Drop Overlay */
+        /* Collapsible Cards */
+        details.ctrl-card { padding: 10px 12px; transition: all 0.2s ease; }
+        summary.ctrl-summary {
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: var(--text-dim);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            user-select: none;
+            list-style: none;
+        }
+        summary.ctrl-summary::-webkit-details-marker { display: none; }
+        summary.ctrl-summary::after {
+            content: '▼';
+            font-size: 9px;
+            transition: transform 0.2s;
+            color: var(--accent);
+            margin-left: 6px;
+        }
+        details[open] summary.ctrl-summary::after { transform: rotate(180deg); }
+        
+        .shape-category-title { font-size: 9px; font-weight: 700; color: var(--accent); text-transform: uppercase; margin: 10px 0 4px 0; letter-spacing: 0.5px; }
+        .preset-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; margin-bottom: 6px; }
+        .preset-grid button { padding: 6px 4px; font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+        /* Layer System Styles */
+        .layer-list { display: flex; flex-direction: column; gap: 4px; max-height: 180px; overflow-y: auto; margin-top: 8px; }
+        .layer-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 8px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-size: 11px;
+            cursor: pointer;
+            transition: border-color 0.15s, background 0.15s;
+        }
+        .layer-item:hover { border-color: var(--accent); }
+        .layer-item.active { border-color: var(--accent); background: rgba(118, 84, 255, 0.12); }
+        .layer-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
+        .layer-btn { background: none; border: none; color: var(--text-dim); padding: 2px 4px; cursor: pointer; font-size: 11px; border-radius: 3px; }
+        .layer-btn:hover { color: var(--text-main); background: var(--border); }
+
+        /* Output Mode Toggle */
+        .segmented-control { display: flex; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 2px; margin-bottom: 8px; }
+        .segmented-btn { flex: 1; background: none; border: none; color: var(--text-dim); padding: 6px; font-size: 10px; font-weight: 700; border-radius: 4px; cursor: pointer; transition: all 0.2s; }
+        .segmented-btn.active { background: var(--card); color: var(--accent); box-shadow: 0 1px 4px rgba(0,0,0,0.2); }
+
+        /* Drag and Drop Overlay - Fixed Box-Sizing & Alignment */
         #drop-overlay {
             position: absolute;
             top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(118, 84, 255, 0.15);
+            width: 100%; height: 100%;
+            background: rgba(10, 10, 12, 0.85);
             border: 2px dashed var(--accent);
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 20px;
+            font-size: 18px;
             font-weight: 700;
             color: var(--accent);
-            z-index: 100;
+            z-index: 50;
             opacity: 0;
             pointer-events: none;
-            transition: opacity 0.2s ease;
+            transition: opacity 0.15s ease-in-out;
+            box-sizing: border-box;
+            text-align: center;
+            padding: 20px;
         }
         #drop-overlay.active { opacity: 1; }
 
@@ -161,10 +250,7 @@
             pointer-events: none;
             transition: opacity 0.2s ease;
         }
-        .modal-overlay.active {
-            opacity: 1;
-            pointer-events: auto;
-        }
+        .modal-overlay.active { opacity: 1; pointer-events: auto; }
         .modal-card {
             background: var(--card);
             border: 1px solid var(--border);
@@ -177,59 +263,14 @@
             box-shadow: 0 10px 30px rgba(0,0,0,0.5);
             color: var(--text-main);
         }
-        .modal-header {
-            padding: 16px 20px;
-            border-bottom: 1px solid var(--border);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            font-weight: 700;
-            font-size: 13px;
-        }
-        .modal-close {
-            background: none;
-            border: none;
-            color: var(--text-dim);
-            font-size: 16px;
-            cursor: pointer;
-            padding: 2px 8px;
-            border-radius: 4px;
-        }
-        .modal-close:hover {
-            color: var(--text-main);
-            background: var(--border);
-        }
-        .modal-body {
-            padding: 20px;
-            overflow-y: auto;
-            font-size: 12px;
-            line-height: 1.6;
-            display: flex;
-            flex-direction: column;
-            gap: 14px;
-        }
-        .instruction-section {
-            background: var(--bg);
-            border: 1px solid var(--border);
-            padding: 12px 14px;
-            border-radius: 6px;
-        }
-        .instruction-section h4 {
-            margin: 0 0 8px 0;
-            color: var(--accent);
-            font-size: 12px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-        .instruction-section ul, .instruction-section ol {
-            margin: 0;
-            padding-left: 18px;
-        }
-        .instruction-section a {
-            color: var(--cyan);
-            text-decoration: none;
-        }
+        .modal-header { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; font-weight: 700; font-size: 13px; }
+        .modal-close { background: none; border: none; color: var(--text-dim); font-size: 16px; cursor: pointer; padding: 2px 8px; border-radius: 4px; }
+        .modal-close:hover { color: var(--text-main); background: var(--border); }
+        .modal-body { padding: 20px; overflow-y: auto; font-size: 12px; line-height: 1.6; display: flex; flex-direction: column; gap: 14px; }
+        .instruction-section { background: var(--bg); border: 1px solid var(--border); padding: 12px 14px; border-radius: 6px; }
+        .instruction-section h4 { margin: 0 0 8px 0; color: var(--accent); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+        .instruction-section ul, .instruction-section ol { margin: 0; padding-left: 18px; }
+        .instruction-section a { color: var(--cyan); text-decoration: none; }
         .tag-note { color: var(--danger); font-weight: bold; }
         .tag-tip { color: var(--playfield); font-weight: bold; }
 
@@ -249,30 +290,47 @@
             box-shadow: 0 4px 12px rgba(0,0,0,0.3);
             white-space: nowrap;
         }
-        .tooltip.visible {
-            opacity: 1;
-        }
+        .tooltip.visible { opacity: 1; }
     </style>
 </head>
 <body>
 
 <div id="studio-layout">
+    <!-- Left Panel: Settings and Transformations -->
     <aside class="panel" id="leftPanel" style="width: 280px;">
         <header>
-            <span>Settings</span>
-            <button class="secondary sm" onclick="toggleAboutModal(true)" data-tooltip="Version, credits and info">About v2.0</button>
+            <span>SETTINGS</span>
+            <div class="header-actions">
+                <button class="icon-btn" onclick="undo()" data-tooltip="Undo last change (Ctrl+Z)">↺</button>
+                <button class="icon-btn" onclick="redo()" data-tooltip="Redo last undone change (Ctrl+Y)">↻</button>
+                <button class="danger-btn sm" onclick="factoryReset()" data-tooltip="Clear cache & reset everything to factory defaults">Reset All</button>
+                <button class="secondary sm" onclick="toggleAboutModal(true)" data-tooltip="Version, credits and info">About</button>
+            </div>
         </header>
         <div class="scroll-content">
             
-            <!-- Tooltips Toggle Control -->
+            <!-- Workspace Mode Switcher -->
+            <div class="ctrl-card" data-tooltip="Switch between Simple (Single SVG) and Advanced (Photoshop Layers) workflow modes">
+                <label>Workspace Mode</label>
+                <select id="workspaceModeSelect" onchange="changeWorkspaceMode(this.value)">
+                    <option value="single">Single SVG Mode (Simple)</option>
+                    <option value="layers">Layers Mode (Photoshop Style)</option>
+                </select>
+            </div>
+
+            <!-- Accessibility & Tooltips Toggle -->
             <div class="ctrl-card">
-                <label class="checkbox-label" data-tooltip="Toggle popup hints when hovering over controls">
+                <label class="checkbox-label" style="margin-bottom: 8px;" data-tooltip="Toggle popup hints when hovering over controls">
                     <input type="checkbox" id="toggleTooltips" checked onchange="setTooltipsEnabled(this.checked)">
                     <span>Show Hover Hints</span>
                 </label>
+                <label class="checkbox-label" data-tooltip="Use high-contrast colorblind-safe palette (dynamic for light/dark themes)">
+                    <input type="checkbox" id="colorblindToggle" onchange="toggleColorblindMode(this.checked)">
+                    <span>Colorblind / High-Contrast</span>
+                </label>
             </div>
 
-            <!-- Theme Selector Card -->
+            <!-- Theme Picker -->
             <div class="ctrl-card" data-tooltip="Change workspace color theme">
                 <label>Theme</label>
                 <select id="themeSelect" onchange="changeTheme(this.value)">
@@ -317,22 +375,27 @@
                 </div>
             </div>
 
+            <!-- Active Layer Indicator -->
+            <div id="transformLabelHeader" style="font-size: 9px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px;">
+                Vector Transform (<span id="activeLayerNameLabel">Main Path</span>)
+            </div>
+
             <div class="ctrl-card" data-tooltip="Start timestamp for generated arcs in milliseconds">
                 <label>Base Timing (ms)</label>
                 <input type="number" id="baseTime" value="1000">
             </div>
 
             <div class="ctrl-card">
-                <div class="checkbox-row" style="margin-bottom: 12px;">
-                    <label style="font-size: 10px; font-weight: bold; text-transform: uppercase; color: var(--text-dim);">Scale</label>
-                    <label class="checkbox-label" style="margin-left: auto;" data-tooltip="Keep X and Y proportions equal while scaling">
+                <div class="checkbox-row" style="margin-bottom: 8px;">
+                    <label style="margin-bottom: 0;">Scale</label>
+                    <label class="checkbox-label" data-tooltip="Keep X and Y proportions equal while scaling">
                         <input type="checkbox" id="linkScale" checked>
                         <span>Link X/Y</span>
                     </label>
                 </div>
                 <label data-tooltip="Horizontal scale factor">Scale X <span class="val-display" id="v_scaleX">0.050</span></label>
                 <input type="range" id="scaleX" min="0.000001" max="1.0" step="0.000001" value="0.05">
-                <label style="margin-top: 12px;" data-tooltip="Vertical scale factor">Scale Y <span class="val-display" id="v_scaleY">0.050</span></label>
+                <label style="margin-top: 10px;" data-tooltip="Vertical scale factor">Scale Y <span class="val-display" id="v_scaleY">0.050</span></label>
                 <input type="range" id="scaleY" min="0.000001" max="1.0" step="0.000001" value="0.05">
             </div>
 
@@ -341,8 +404,28 @@
                 <input type="range" id="rotation" min="0" max="360" step="1" value="0">
             </div>
 
+            <!-- 3D Spatial Tilt Controls -->
+            <details class="ctrl-card" id="tiltDetails">
+                <summary class="ctrl-summary" data-tooltip="Click to expand 3D Perspective Tilt controls">
+                    <span>3D Perspective Tilt</span>
+                </summary>
+                
+                <div style="margin-top: 10px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <span style="font-size: 9px; color: var(--text-dim); text-transform: uppercase; font-weight: 700;">Spatial Angle</span>
+                        <button class="secondary sm" onclick="reset3DTilt()" style="padding: 2px 6px; font-size: 9px;" data-tooltip="Reset Pitch and Yaw to 0°">Reset 3D</button>
+                    </div>
+                    
+                    <label data-tooltip="Pitch rotation (X-Axis)">Pitch <span class="val-display" id="v_pitch">0</span>°</label>
+                    <input type="range" id="tiltPitch" min="-80" max="80" step="1" value="0">
+                    
+                    <label style="margin-top: 8px;" data-tooltip="Yaw rotation (Y-Axis)">Yaw <span class="val-display" id="v_yaw">0</span>°</label>
+                    <input type="range" id="tiltYaw" min="-80" max="80" step="1" value="0">
+                </div>
+            </details>
+
             <div class="ctrl-card">
-                <label style="margin-bottom: 10px;">Flip Axis</label>
+                <label style="margin-bottom: 8px;">Flip Axis</label>
                 <div class="checkbox-row">
                     <label class="checkbox-label" data-tooltip="Mirror shape horizontally">
                         <input type="checkbox" id="flipX">
@@ -356,9 +439,9 @@
             </div>
 
             <div class="ctrl-card">
-                <div class="checkbox-row" style="margin-bottom: 12px;">
-                    <label style="font-size: 10px; font-weight: bold; text-transform: uppercase; color: var(--text-dim);">X Offset</label>
-                    <label class="checkbox-label" style="margin-left: auto;" data-tooltip="Lock horizontal position directly to center (0.50)">
+                <div class="checkbox-row" style="margin-bottom: 8px;">
+                    <label style="margin-bottom: 0;">X Offset</label>
+                    <label class="checkbox-label" data-tooltip="Lock horizontal position directly to center (0.50)">
                         <input type="checkbox" id="snapX">
                         <span>Snap Center</span>
                     </label>
@@ -373,52 +456,154 @@
             </div>
 
             <div class="ctrl-card" data-tooltip="Number of arc segments sampling the path (higher = smoother curved shapes)">
-                <label>Complexity <span class="val-display" id="v_steps">60</span></label>
+                <div class="checkbox-row" style="margin-bottom: 8px;">
+                    <label style="margin-bottom: 0;">Sampling</label>
+                    <label class="checkbox-label" data-tooltip="Distribute points equally by physical spatial distance across all subpaths instead of fixed per-path counts">
+                        <input type="checkbox" id="uniformResample" checked onchange="invalidateActiveCenterCache(); scheduleRender(true);">
+                        <span>Uniform Distance</span>
+                    </label>
+                </div>
+                <label data-tooltip="Total points sampled along the path">Complexity <span class="val-display" id="v_steps">60</span></label>
                 <input type="range" id="steps" min="2" max="500" step="1" value="60">
+            </div>
+
+            <div class="ctrl-card" data-tooltip="Removes near-straight points from the output to cut down arc line count. 0 = off.">
+                <label>Point Reduction <span class="val-display" id="v_simplify">0.000</span></label>
+                <input type="range" id="simplify" min="0" max="0.05" step="0.001" value="0">
             </div>
         </div>
     </aside>
 
     <div class="resizer" id="resizerLeft"></div>
 
+    <!-- Central Viewport Container -->
     <main class="viewport" id="viewport">
-        <div id="drop-overlay">Drop SVG file here</div>
+        <!-- Clean Overlay Box (Positioned correctly over canvas) -->
+        <div id="drop-overlay">Drop SVG file(s) here</div>
         <canvas id="canvas"></canvas>
-        <div class="hint">Left-Click: Move / Resize &nbsp;|&nbsp; Right-Click (Hold): Pan Viewport</div>
+        <div class="hint">Left-Click: Move / Resize &nbsp;|&nbsp; Right-Click (Hold): Pan Viewport &nbsp;|&nbsp; Arrows: Nudge &nbsp;|&nbsp; Ctrl+Z: Undo</div>
     </main>
 
     <div class="resizer" id="resizerRight"></div>
 
+    <!-- Right Panel: SVG Input, Layer Management, Code Output -->
     <aside class="panel" id="rightPanel" style="width: 380px;">
         <header>
             <span>SVG to .aff Output</span>
             <button class="secondary sm" onclick="toggleModal(true)" data-tooltip="View workflow and import steps">Instructions</button>
         </header>
         <div class="scroll-content">
+            
+            <!-- Photoshop-Style Layers Panel -->
+            <div class="ctrl-card" id="layersCard" style="display: none;" data-tooltip="Manage vector layers like Photoshop">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <label style="margin-bottom: 0;">Photoshop Layers</label>
+                    <div style="display: flex; gap: 4px;">
+                        <button class="secondary sm" onclick="document.getElementById('svgFile').click()" data-tooltip="Import SVG files into new layers">Import SVG</button>
+                        <button class="sm" onclick="addNewLayer()" data-tooltip="Create a new blank layer">+ New</button>
+                    </div>
+                </div>
+                <input type="file" id="svgFile" accept=".svg" multiple style="display:none">
+                <div class="layer-list" id="layerList"></div>
+            </div>
+
             <div class="ref-link">
                 Need to design a path string? Try <a href="https://yqnn.github.io/svg-path-editor/" target="_blank">SVG Path Editor</a>.
             </div>
-            
-            <input type="file" id="svgFile" accept=".svg" style="display:none">
-            <button class="secondary" onclick="document.getElementById('svgFile').click()" data-tooltip="Load SVG path data directly from a local file">Import SVG File</button>
-            
-            <label>Input Path Data</label>
-            <textarea id="svgInput" spellcheck="false" placeholder="Paste SVG path data here... or drop an .svg file onto the window."></textarea>
 
-            <label style="display: flex; justify-content: space-between;">
-                Arcaea .aff Output 
-                <span id="lineCount" style="color: var(--text-dim); text-transform: none;">0 lines</span>
-            </label>
+            <div class="ctrl-card" id="singleImportCard">
+                <input type="file" id="svgFileSingle" accept=".svg" style="display:none">
+                <button class="secondary" onclick="document.getElementById('svgFileSingle').click()" style="width: 100%;" data-tooltip="Load SVG path data directly from a local file">Import SVG File</button>
+            </div>
+
+            <!-- Text to Path Converter -->
+            <div class="ctrl-card" data-tooltip="Convert text strings into vector paths directly">
+                <label>Text-to-Path Generator</label>
+                <div style="display: flex; gap: 6px; margin-bottom: 8px;">
+                    <input type="text" id="textInput" placeholder="Enter text (e.g. PURE)" value="PURE">
+                    <button class="secondary sm" onclick="generateTextPath()" style="flex-shrink: 0;">Convert</button>
+                </div>
+            </div>
+
+            <!-- Vector Shape Preset Library -->
+            <details class="ctrl-card" id="shapeLibraryDetails">
+                <summary class="ctrl-summary" data-tooltip="Click to expand vector shape presets library">
+                    <span>Shape Library</span>
+                </summary>
+                
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; margin-bottom: 6px;">
+                    <label class="checkbox-label" data-tooltip="Append clicked preset shapes to active path instead of replacing it">
+                        <input type="checkbox" id="appendShape">
+                        <span>Multi-select / Append</span>
+                    </label>
+                </div>
+
+                <div style="max-height: 240px; overflow-y: auto; padding-right: 4px;">
+                    <div class="shape-category-title">Basic & Geometry</div>
+                    <div class="preset-grid">
+                        <button class="secondary sm" onclick="loadShapePreset('circle')">◯ Circle</button>
+                        <button class="secondary sm" onclick="loadShapePreset('square')">▢ Square</button>
+                        <button class="secondary sm" onclick="loadShapePreset('triangle')">△ Triangle</button>
+                        <button class="secondary sm" onclick="loadShapePreset('rectangle')">▭ Rect</button>
+                        <button class="secondary sm" onclick="loadShapePreset('oval')">⬭ Oval</button>
+                        <button class="secondary sm" onclick="loadShapePreset('diamond')">◇ Diamond</button>
+                    </div>
+
+                    <div class="shape-category-title">Polygons</div>
+                    <div class="preset-grid">
+                        <button class="secondary sm" onclick="loadShapePreset('pentagon')">⬟ Pentagon</button>
+                        <button class="secondary sm" onclick="loadShapePreset('hexagon')">⬡ Hexagon</button>
+                        <button class="secondary sm" onclick="loadShapePreset('octagon')">🛑 Octagon</button>
+                        <button class="secondary sm" onclick="loadShapePreset('trapezoid')">⏢ Trapezoid</button>
+                        <button class="secondary sm" onclick="loadShapePreset('star')">☆ Star</button>
+                        <button class="secondary sm" onclick="loadShapePreset('cross')">✚ Cross</button>
+                    </div>
+
+                    <div class="shape-category-title">Arrows & Symbols</div>
+                    <div class="preset-grid">
+                        <button class="secondary sm" onclick="loadShapePreset('arrow')">⇧ Arrow Up</button>
+                        <button class="secondary sm" onclick="loadShapePreset('doubleArrow')">⇯ Dbl Arrow</button>
+                        <button class="secondary sm" onclick="loadShapePreset('curvedArrow')">⤤ Curve Arrow</button>
+                        <button class="secondary sm" onclick="loadShapePreset('heart')">♡ Heart</button>
+                        <button class="secondary sm" onclick="loadShapePreset('note')">♪ Note</button>
+                        <button class="secondary sm" onclick="loadShapePreset('shield')">🛡 Shield</button>
+                    </div>
+
+                    <div class="shape-category-title">Abstract & FX</div>
+                    <div class="preset-grid">
+                        <button class="secondary sm" onclick="loadShapePreset('spiral')">◉ Spiral</button>
+                        <button class="secondary sm" onclick="loadShapePreset('wave')">〰 Wave</button>
+                        <button class="secondary sm" onclick="loadShapePreset('burst')">💥 Burst</button>
+                        <button class="secondary sm" onclick="loadShapePreset('badge')">🏵 Badge</button>
+                        <button class="secondary sm" onclick="loadShapePreset('lightning')">⚡ Bolt</button>
+                        <button class="secondary sm" onclick="loadShapePreset('chevron')">❯ Chevron</button>
+                    </div>
+                </div>
+            </details>
+
+            <label id="svgInputLabel">Input Path Data</label>
+            <textarea id="svgInput" spellcheck="false" placeholder="Paste SVG path data here... or drop SVG files onto the window."></textarea>
+
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <label style="margin-bottom: 0;">Arcaea .aff Output</label>
+                <span id="lineCount" style="color: var(--text-dim); text-transform: none; font-size: 10px;">0 lines</span>
+            </div>
+
+            <!-- Export Layer Option (Visible only in Layers Mode) -->
+            <div class="segmented-control" id="exportSegmentedControl" style="display: none;" data-tooltip="Choose to view/copy active layer only or all visible layers combined">
+                <button class="segmented-btn active" id="btnExportActive" onclick="setExportMode('active')">Active Layer</button>
+                <button class="segmented-btn" id="btnExportAll" onclick="setExportMode('all')">All Layers Combined</button>
+            </div>
             
             <div id="warning-banner">High complexity! (>650 lines generated)</div>
             <textarea id="affOutput" readonly style="flex-grow:1;"></textarea>
             
-            <button onclick="copyAff()" data-tooltip="Copy all generated .aff lines to clipboard">Copy Output</button>
+            <button onclick="copyAff()" style="width: 100%;" data-tooltip="Copy generated .aff lines to clipboard">Copy Output</button>
         </div>
     </aside>
 </div>
 
-<!-- Instructions Modal -->
+<!-- How-To Modal -->
 <div class="modal-overlay" id="instructionModal">
     <div class="modal-card">
         <div class="modal-header">
@@ -427,28 +612,28 @@
         </div>
         <div class="modal-body">
             <div class="instruction-section">
-                <h4>Basic Steps</h4>
+                <h4>BASIC STEPS</h4>
                 <ol>
-                    <li>Copy or import your <code>.svg</code> file or path string.</li>
-                    <li>Adjust scale, position, or complexity, then click <strong>Copy Output</strong>.</li>
+                    <li>Paste SVG path data, convert text, pick a shape preset, or import <code>.svg</code> files (Single or Layers mode).</li>
+                    <li>Adjust scale, position, rotation, or complexity, then click <strong>Copy Output</strong>.</li>
                 </ol>
             </div>
 
             <div class="instruction-section">
-                <h4>Method 1: ArcCreate Text Tab</h4>
+                <h4>METHOD 1: ARCCREATE TEXT TAB</h4>
                 <ul>
                     <li>Open <a href="https://github.com/Arcthesia/ArcCreate" target="_blank">ArcCreate</a> and load your chart project.</li>
                     <li>Switch to the raw text editing tab ( <code>&lt; &gt;</code> ).</li>
                     <li>Paste the copied lines directly into the text editor.</li>
                 </ul>
-                <div style="margin-top: 8px;">
-                    <span class="tag-note">Note:</span> Direct text edits inside ArcCreate cannot be undone.<br>
-                    <span class="tag-tip">Tip:</span> Create a dedicated timing group first, scroll to the bottom, and paste the code there to keep things organized.
+                <div style="margin-top: 10px;">
+                    <span class="tag-note">Note:</span> Direct text edits inside ArcCreate cannot be undone within the editor.<br>
+                    <span class="tag-tip">Tip:</span> Create a dedicated timing group first, scroll to the bottom, and paste the code there to keep your chart organized.
                 </div>
             </div>
 
             <div class="instruction-section">
-                <h4>Method 2: Direct .aff File Editing</h4>
+                <h4>METHOD 2: DIRECT .AFF FILE EDITING</h4>
                 <ul>
                     <li>Open your target <code>.aff</code> chart file in any text editor.</li>
                     <li>Paste the generated arc lines into the file where needed.</li>
@@ -459,159 +644,90 @@
     </div>
 </div>
 
-<!-- About / Info Modal -->
+<!-- Info Modal -->
 <div class="modal-overlay" id="aboutModal">
     <div class="modal-card">
         <div class="modal-header">
-            <span>About &amp; Info (v2.0)</span>
+            <span>About &amp; Info (v2.5)</span>
             <button class="modal-close" onclick="toggleAboutModal(false)">✕</button>
         </div>
         <div class="modal-body">
             <div class="instruction-section">
                 <h4>SVG to .aff Converter</h4>
-                <p style="margin: 0; color: var(--text-dim);">A high-performance standalone web utility designed to sample vector SVG paths and convert them into Arcaea chart format (<code>.aff</code>) in real time.</p>
+                <p style="margin: 0; color: var(--text-dim);">A high-performance standalone web utility designed to sample vector SVG paths and convert them into Arcaea chart format (<code>.aff</code>) in real time with optional Photoshop-style multi-layer editing.</p>
             </div>
 
             <div class="instruction-section">
                 <h4>Credits &amp; Technology Attributions</h4>
                 <ul>
-                    <li><strong>Created &amp;Tested by:</strong> Exiony (aka. James)</li>
+                    <li><strong>Created &amp; Tested by:</strong> Exiony (aka. James)</li>
                     <li><strong>Target Editor:</strong> Designed for workflow integration with <a href="https://github.com/Arcthesia/ArcCreate" target="_blank">ArcCreate</a> by Arcthesia.</li>
                     <li><strong>SVG DOM Path Sampling:</strong> Standard W3C SVG 1.1 Specification (<code>SVGPathElement.getPointAtLength()</code> API).</li>
+                    <li><strong>Text Vectorization Engine:</strong> <a href="https://opentype.js.org/" target="_blank">opentype.js</a> (OpenType/TrueType font path parsing).</li>
                     <li><strong>Graphics &amp; Layout Engine:</strong> HTML5 Canvas 2D Context API &amp; W3C DOMParser.</li>
-                    <li><strong>Algorithms:</strong> Cached bounding-box geometric centering, debounced string compilation, interactive camera space transformation matrix.</li>
+                    <li><strong>Algorithms:</strong> Multi-layer spatial compositing, uniform arc-length resampling, 3D perspective projection transform, cached bounding-box geometric centering.</li>
                 </ul>
             </div>
 
             <div class="instruction-section">
                 <h4>Disclaimer &amp; Trademark Notice</h4>
-                <p style="margin: 0; color: var(--text-dim);">This content has no affiliation with, endorsement from, or association with <strong>Arcaea</strong>, <strong>lowiro limited</strong>, or any related entities. <strong>Arcaea</strong> is a registered trademark owned by <strong>lowiro limited</strong>, and we are not associated with them in any way.</p>
+                <p style="margin: 0; color: var(--text-dim);">This tool is an independent fan project and has no affiliation with, endorsement from, or association with <strong>Arcaea</strong>, <strong>lowiro limited</strong>, or any related entities. <strong>Arcaea</strong> is a registered trademark owned by <strong>lowiro limited</strong>, and we are not associated with them in any way.</p>
             </div>
         </div>
     </div>
 </div>
 
 <div class="tooltip" id="tooltip"></div>
-
 <svg style="display:none;"><path id="pathHelper"></path></svg>
 
 <script>
-    // --- Themes ---
+    // ==========================================
+    // 1. THEME DEFINITIONS & COLOR MANAGEMENT
+    // ==========================================
     const presetThemes = {
         defaultTheme: {
-            '--bg': '#0a0a0c',
-            '--panel': '#141418',
-            '--card': '#1c1c24',
-            '--viewport-bg': '#050507',
-            '--accent': '#7654ff',
-            '--accent-hover': '#9175ff',
-            '--text-main': '#e1e1e6',
-            '--text-dim': '#888888',
-            '--border': '#2d2d35',
-            '--cyan': '#00f2ff',
-            '--playfield': '#00ff66',
-            '--grid': 'rgba(255, 255, 255, 0.08)'
+            '--bg': '#0a0a0c', '--panel': '#141418', '--card': '#1c1c24', '--viewport-bg': '#050507',
+            '--accent': '#7654ff', '--accent-hover': '#9175ff', '--text-main': '#e1e1e6', '--text-dim': '#888888',
+            '--border': '#2d2d35', '--cyan': '#00f2ff', '--playfield': '#00ff66', '--grid': 'rgba(255, 255, 255, 0.08)'
         },
         cyberpunk: {
-            '--bg': '#050d12',
-            '--panel': '#0b1720',
-            '--card': '#12222e',
-            '--viewport-bg': '#03080c',
-            '--accent': '#00f2ff',
-            '--accent-hover': '#5cfa33',
-            '--text-main': '#e0f7ff',
-            '--text-dim': '#5a8296',
-            '--border': '#1b3b4d',
-            '--cyan': '#00f2ff',
-            '--playfield': '#ff007f',
-            '--grid': 'rgba(0, 242, 255, 0.12)'
+            '--bg': '#050d12', '--panel': '#0b1720', '--card': '#12222e', '--viewport-bg': '#03080c',
+            '--accent': '#00f2ff', '--accent-hover': '#5cfa33', '--text-main': '#e0f7ff', '--text-dim': '#5a8296',
+            '--border': '#1b3b4d', '--cyan': '#00f2ff', '--playfield': '#ff007f', '--grid': 'rgba(0, 242, 255, 0.12)'
         },
         oled: {
-            '--bg': '#000000',
-            '--panel': '#090909',
-            '--card': '#121212',
-            '--viewport-bg': '#000000',
-            '--accent': '#ff2a6d',
-            '--accent-hover': '#ff5c8d',
-            '--text-main': '#ffffff',
-            '--text-dim': '#666666',
-            '--border': '#262626',
-            '--cyan': '#05d9e8',
-            '--playfield': '#05d9e8',
-            '--grid': 'rgba(255, 42, 109, 0.12)'
+            '--bg': '#000000', '--panel': '#090909', '--card': '#121212', '--viewport-bg': '#000000',
+            '--accent': '#ff2a6d', '--accent-hover': '#ff5c8d', '--text-main': '#ffffff', '--text-dim': '#666666',
+            '--border': '#262626', '--cyan': '#05d9e8', '--playfield': '#05d9e8', '--grid': 'rgba(255, 42, 109, 0.12)'
         },
         synthwave: {
-            '--bg': '#120c1f',
-            '--panel': '#1a102f',
-            '--card': '#251742',
-            '--viewport-bg': '#0b0714',
-            '--accent': '#ff71ce',
-            '--accent-hover': '#b967ff',
-            '--text-main': '#f1e6ff',
-            '--text-dim': '#8a71ad',
-            '--border': '#3d2666',
-            '--cyan': '#01cdfe',
-            '--playfield': '#fdbb2d',
-            '--grid': 'rgba(255, 113, 206, 0.12)'
+            '--bg': '#120c1f', '--panel': '#1a102f', '--card': '#251742', '--viewport-bg': '#0b0714',
+            '--accent': '#ff71ce', '--accent-hover': '#b967ff', '--text-main': '#f1e6ff', '--text-dim': '#8a71ad',
+            '--border': '#3d2666', '--cyan': '#01cdfe', '--playfield': '#fdbb2d', '--grid': 'rgba(255, 113, 206, 0.12)'
         },
         minimalLight: {
-            '--bg': '#f0f2f5',
-            '--panel': '#ffffff',
-            '--card': '#f8f9fa',
-            '--viewport-bg': '#e4e7ed',
-            '--accent': '#5b46e5',
-            '--accent-hover': '#432ec7',
-            '--text-main': '#1a1d20',
-            '--text-dim': '#6c757d',
-            '--border': '#dcdfe6',
-            '--cyan': '#0052cc',
-            '--playfield': '#10b981',
-            '--grid': 'rgba(0, 0, 0, 0.08)'
+            '--bg': '#f0f2f5', '--panel': '#ffffff', '--card': '#f8f9fa', '--viewport-bg': '#e4e7ed',
+            '--accent': '#5b46e5', '--accent-hover': '#432ec7', '--text-main': '#1a1d20', '--text-dim': '#6c757d',
+            '--border': '#dcdfe6', '--cyan': '#0052cc', '--playfield': '#10b981', '--grid': 'rgba(0, 0, 0, 0.08)'
         },
         sakura: {
-            '--bg': '#fff5f7',
-            '--panel': '#ffffff',
-            '--card': '#fff0f3',
-            '--viewport-bg': '#fbe4e8',
-            '--accent': '#e85d75',
-            '--accent-hover': '#d0465e',
-            '--text-main': '#2d1a22',
-            '--text-dim': '#9c7382',
-            '--border': '#f7cad0',
-            '--cyan': '#6b5b95',
-            '--playfield': '#2a9d8f',
-            '--grid': 'rgba(232, 93, 117, 0.12)'
+            '--bg': '#fff5f7', '--panel': '#ffffff', '--card': '#fff0f3', '--viewport-bg': '#fbe4e8',
+            '--accent': '#e85d75', '--accent-hover': '#d0465e', '--text-main': '#2d1a22', '--text-dim': '#9c7382',
+            '--border': '#f7cad0', '--cyan': '#6b5b95', '--playfield': '#2a9d8f', '--grid': 'rgba(232, 93, 117, 0.12)'
         },
         slateLight: {
-            '--bg': '#e2e8f0',
-            '--panel': '#f8fafc',
-            '--card': '#ffffff',
-            '--viewport-bg': '#cbd5e1',
-            '--accent': '#2563eb',
-            '--accent-hover': '#1d4ed8',
-            '--text-main': '#0f172a',
-            '--text-dim': '#64748b',
-            '--border': '#cbd5e1',
-            '--cyan': '#0284c7',
-            '--playfield': '#d97706',
-            '--grid': 'rgba(37, 99, 235, 0.1)'
+            '--bg': '#e2e8f0', '--panel': '#f8fafc', '--card': '#ffffff', '--viewport-bg': '#cbd5e1',
+            '--accent': '#2563eb', '--accent-hover': '#1d4ed8', '--text-main': '#0f172a', '--text-dim': '#64748b',
+            '--border': '#cbd5e1', '--cyan': '#0284c7', '--playfield': '#d97706', '--grid': 'rgba(37, 99, 235, 0.1)'
         },
         solarizedLight: {
-            '--bg': '#fdf6e3',
-            '--panel': '#eee8d5',
-            '--card': '#fdf6e3',
-            '--viewport-bg': '#e6dfcc',
-            '--accent': '#b58900',
-            '--accent-hover': '#cb4b16',
-            '--text-main': '#073642',
-            '--text-dim': '#657b83',
-            '--border': '#d3cbb7',
-            '--cyan': '#268bd2',
-            '--playfield': '#2aa198',
-            '--grid': 'rgba(7, 54, 66, 0.1)'
+            '--bg': '#fdf6e3', '--panel': '#eee8d5', '--card': '#fdf6e3', '--viewport-bg': '#e6dfcc',
+            '--accent': '#b58900', '--accent-hover': '#cb4b16', '--text-main': '#073642', '--text-dim': '#657b83',
+            '--border': '#d3cbb7', '--cyan': '#268bd2', '--playfield': '#2aa198', '--grid': 'rgba(7, 54, 66, 0.1)'
         }
     };
 
+    // Update CSS variables when a theme is selected from the dropdown
     function changeTheme(themeKey) {
         const picker = document.getElementById('customThemePicker');
         if (themeKey === 'custom') {
@@ -624,9 +740,11 @@
         for (let key in theme) {
             document.documentElement.style.setProperty(key, theme[key]);
         }
+        refreshThemeColors();
         scheduleRender();
     }
 
+    // Apply color values from custom pickers
     function applyCustomTheme() {
         const accent = document.getElementById('customAccent').value;
         const bg = document.getElementById('customBg').value;
@@ -643,14 +761,16 @@
         document.documentElement.style.setProperty('--playfield', playfield);
         document.documentElement.style.setProperty('--text-main', text);
         document.documentElement.style.setProperty('--border', accent + '44');
+        refreshThemeColors();
         scheduleRender();
     }
 
-    // Modal Control Logic
+    // ==========================================
+    // 2. MODAL DIALOGS & TOOLTIPS
+    // ==========================================
     function toggleModal(show) {
         const modal = document.getElementById('instructionModal');
-        if (show) modal.classList.add('active');
-        else modal.classList.remove('active');
+        show ? modal.classList.add('active') : modal.classList.remove('active');
     }
     document.getElementById('instructionModal').addEventListener('click', (e) => {
         if (e.target.id === 'instructionModal') toggleModal(false);
@@ -658,14 +778,13 @@
 
     function toggleAboutModal(show) {
         const modal = document.getElementById('aboutModal');
-        if (show) modal.classList.add('active');
-        else modal.classList.remove('active');
+        show ? modal.classList.add('active') : modal.classList.remove('active');
     }
     document.getElementById('aboutModal').addEventListener('click', (e) => {
         if (e.target.id === 'aboutModal') toggleAboutModal(false);
     });
 
-    // Tooltip System
+    // Hover tooltip positioning
     let tooltipsEnabled = true;
     const tooltipEl = document.getElementById('tooltip');
 
@@ -690,7 +809,216 @@
         });
     });
 
-    // --- Main Canvas & Logic Engine ---
+    // ==========================================
+    // 3. LAYER SYSTEM & DATA STRUCTURES
+    // ==========================================
+    let workspaceMode = 'single'; // Options: 'single' or 'layers'
+    let layerIdCounter = 1;
+    let layers = [];
+    let activeLayerId = null;
+    let exportMode = 'active'; // Options: 'active' or 'all'
+
+    // Create a fresh layer object with default transformation values
+    function createDefaultLayer(name, svgPath = "M20,100 A80,80 0 1,0 180,100 A80,80 0 1,0 20,100 Z") {
+        const idNum = layerIdCounter++;
+        return {
+            id: 'layer_' + Date.now() + '_' + idNum,
+            name: name || ('Layer ' + idNum),
+            visible: true,
+            svgPath: svgPath,
+            baseTime: 1000,
+            scaleX: 0.05,
+            scaleY: 0.05,
+            linkScale: true,
+            rotation: 0,
+            tiltPitch: 0,
+            tiltYaw: 0,
+            flipX: false,
+            flipY: false,
+            snapX: false,
+            offsetX: 0.5,
+            offsetY: 0.5,
+            steps: 60,
+            uniformResample: true,
+            simplify: 0.0,
+            cachedCenter: null,
+            rawPathCache: null,
+            lastTransformed: null
+        };
+    }
+
+    // Helper to get the layer currently being edited
+    function getActiveLayer() {
+        let active = layers.find(l => l && l.id === activeLayerId);
+        if (!active && layers.length > 0) {
+            activeLayerId = layers[0].id;
+            active = layers[0];
+        }
+        if (!active) {
+            const def = createDefaultLayer('Layer 1');
+            layers = [def];
+            activeLayerId = def.id;
+            active = def;
+        }
+        return active;
+    }
+
+    // Change target active layer
+    function setActiveLayer(id) {
+        if (!layers.some(l => l && l.id === id)) return;
+        activeLayerId = id;
+        syncUIToActiveLayer();
+        renderLayerListUI();
+        scheduleRender(true);
+    }
+
+    // Switch between single SVG path mode and multi-layer Photoshop mode
+    function changeWorkspaceMode(mode) {
+        commitUndoSnapshot();
+        workspaceMode = mode;
+        applyModeUI();
+        scheduleRender(true);
+        pushUndoIfChanged();
+    }
+
+    // Toggle UI visibility based on chosen workspace mode
+    function applyModeUI() {
+        const layersCard = document.getElementById('layersCard');
+        const singleImportCard = document.getElementById('singleImportCard');
+        const exportSegmentedControl = document.getElementById('exportSegmentedControl');
+        const svgInputLabel = document.getElementById('svgInputLabel');
+        const transformLabelHeader = document.getElementById('transformLabelHeader');
+        const modeSelect = document.getElementById('workspaceModeSelect');
+
+        modeSelect.value = workspaceMode;
+
+        if (workspaceMode === 'layers') {
+            layersCard.style.display = 'block';
+            singleImportCard.style.display = 'none';
+            exportSegmentedControl.style.display = 'flex';
+            svgInputLabel.innerText = "Input Path Data (Active Layer)";
+            const active = getActiveLayer();
+            document.getElementById('activeLayerNameLabel').innerText = active ? active.name : 'Layer 1';
+            transformLabelHeader.style.display = 'block';
+        } else {
+            layersCard.style.display = 'none';
+            singleImportCard.style.display = 'block';
+            exportSegmentedControl.style.display = 'none';
+            svgInputLabel.innerText = "Input Path Data";
+            transformLabelHeader.style.display = 'none';
+            exportMode = 'active';
+        }
+        renderLayerListUI();
+    }
+
+    function addNewLayer(name, svgPath) {
+        commitUndoSnapshot();
+        const newLayer = createDefaultLayer(name, svgPath);
+        layers.push(newLayer);
+        activeLayerId = newLayer.id;
+        syncUIToActiveLayer();
+        renderLayerListUI();
+        scheduleRender(true);
+        pushUndoIfChanged();
+    }
+
+    function deleteLayer(id) {
+        if (layers.length <= 1) {
+            alert("Cannot delete the only layer.");
+            return;
+        }
+        commitUndoSnapshot();
+        const idx = layers.findIndex(l => l && l.id === id);
+        if (idx !== -1) {
+            layers.splice(idx, 1);
+            if (activeLayerId === id) {
+                const safeLayer = layers[Math.max(0, idx - 1)];
+                activeLayerId = safeLayer ? safeLayer.id : layers[0].id;
+            }
+        }
+        syncUIToActiveLayer();
+        renderLayerListUI();
+        scheduleRender(true);
+        pushUndoIfChanged();
+    }
+
+    function toggleLayerVisibility(id, e) {
+        e.stopPropagation();
+        commitUndoSnapshot();
+        const l = layers.find(item => item && item.id === id);
+        if (l) {
+            l.visible = !l.visible;
+            renderLayerListUI();
+            scheduleRender(true);
+            pushUndoIfChanged();
+        }
+    }
+
+    function moveLayerOrder(id, dir, e) {
+        e.stopPropagation();
+        const idx = layers.findIndex(l => l && l.id === id);
+        if (idx < 0) return;
+        if (dir === -1 && idx > 0) {
+            commitUndoSnapshot();
+            const temp = layers[idx];
+            layers[idx] = layers[idx - 1];
+            layers[idx - 1] = temp;
+            renderLayerListUI();
+            scheduleRender(true);
+            pushUndoIfChanged();
+        } else if (dir === 1 && idx < layers.length - 1) {
+            commitUndoSnapshot();
+            const temp = layers[idx];
+            layers[idx] = layers[idx + 1];
+            layers[idx + 1] = temp;
+            renderLayerListUI();
+            scheduleRender(true);
+            pushUndoIfChanged();
+        }
+    }
+
+    // Re-render the layer list in the right panel
+    function renderLayerListUI() {
+        const listEl = document.getElementById('layerList');
+        listEl.innerHTML = '';
+
+        // Clean out any corrupted layer items
+        layers = layers.filter(l => l && typeof l === 'object' && l.id && l.name);
+        if (layers.length === 0) {
+            const def = createDefaultLayer('Layer 1');
+            layers = [def];
+            activeLayerId = def.id;
+        }
+
+        layers.forEach((l, idx) => {
+            const item = document.createElement('div');
+            item.className = 'layer-item' + (l.id === activeLayerId ? ' active' : '');
+            item.onclick = () => setActiveLayer(l.id);
+
+            item.innerHTML = `
+                <button class="layer-btn" onclick="toggleLayerVisibility('${l.id}', event)" title="Toggle Visibility">
+                    ${l.visible ? '👁' : '🙈'}
+                </button>
+                <span class="layer-name" style="${!l.visible ? 'opacity: 0.5;' : ''}">${escapeHtml(l.name)}</span>
+                <button class="layer-btn" onclick="moveLayerOrder('${l.id}', -1, event)" ${idx === 0 ? 'disabled style="opacity:0.3;"' : ''}>▲</button>
+                <button class="layer-btn" onclick="moveLayerOrder('${l.id}', 1, event)" ${idx === layers.length - 1 ? 'disabled style="opacity:0.3;"' : ''}>▼</button>
+                <button class="layer-btn" onclick="deleteLayer('${l.id}')" title="Delete Layer">✕</button>
+            `;
+            listEl.appendChild(item);
+        });
+
+        const active = getActiveLayer();
+        if (active) {
+            document.getElementById('activeLayerNameLabel').innerText = active.name || 'Layer 1';
+        }
+    }
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    }
+
+    // DOM Element References
     const viewport = document.getElementById('viewport');
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
@@ -701,8 +1029,8 @@
     const lineCountDisplay = document.getElementById('lineCount');
     const dropOverlay = document.getElementById('drop-overlay');
     
-    // UI Elements
     const fileInput = document.getElementById('svgFile');
+    const fileInputSingle = document.getElementById('svgFileSingle');
     const scaleXInput = document.getElementById('scaleX');
     const scaleYInput = document.getElementById('scaleY');
     const offsetXInput = document.getElementById('offsetX');
@@ -710,26 +1038,271 @@
     const snapXCheck = document.getElementById('snapX');
     const linkScale = document.getElementById('linkScale');
     const baseTimeInput = document.getElementById('baseTime');
+    const rotationInput = document.getElementById('rotation');
+    const tiltPitchInput = document.getElementById('tiltPitch');
+    const tiltYawInput = document.getElementById('tiltYaw');
+    const stepsInput = document.getElementById('steps');
+    const simplifyInput = document.getElementById('simplify');
+    const flipXCheck = document.getElementById('flipX');
+    const flipYCheck = document.getElementById('flipY');
+    const themeSelect = document.getElementById('themeSelect');
+    const colorblindToggle = document.getElementById('colorblindToggle');
+    const uniformResampleCheck = document.getElementById('uniformResample');
 
-    // App State
+    // Control panel value display elements
+    const vScaleX = document.getElementById('v_scaleX');
+    const vScaleY = document.getElementById('v_scaleY');
+    const vRot = document.getElementById('v_rot');
+    const vPitch = document.getElementById('v_pitch');
+    const vYaw = document.getElementById('v_yaw');
+    const vOffX = document.getElementById('v_offX');
+    const vOffY = document.getElementById('v_offY');
+    const vSteps = document.getElementById('v_steps');
+    const vSimplify = document.getElementById('v_simplify');
+
+    // Update left panel controls to show current layer settings
+    function syncUIToActiveLayer() {
+        const active = getActiveLayer();
+        if (!active) return;
+        
+        svgInput.value = active.svgPath || '';
+        baseTimeInput.value = active.baseTime ?? 1000;
+        scaleXInput.value = active.scaleX ?? 0.05;
+        scaleYInput.value = active.scaleY ?? 0.05;
+        linkScale.checked = !!active.linkScale;
+        rotationInput.value = active.rotation ?? 0;
+        tiltPitchInput.value = active.tiltPitch ?? 0;
+        tiltYawInput.value = active.tiltYaw ?? 0;
+        flipXCheck.checked = !!active.flipX;
+        flipYCheck.checked = !!active.flipY;
+        snapXCheck.checked = !!active.snapX;
+        offsetXInput.value = active.offsetX ?? 0.5;
+        offsetYInput.value = active.offsetY ?? 0.5;
+        stepsInput.value = active.steps ?? 60;
+        uniformResampleCheck.checked = !!active.uniformResample;
+        simplifyInput.value = active.simplify ?? 0.0;
+    }
+
+    // Save current control panel values into the active layer object
+    function updateActiveLayerFromUI() {
+        const active = getActiveLayer();
+        if (!active) return;
+
+        active.svgPath = svgInput.value;
+        active.baseTime = parseInt(baseTimeInput.value) || 1000;
+        active.scaleX = parseFloat(scaleXInput.value);
+        active.scaleY = parseFloat(scaleYInput.value);
+        active.linkScale = linkScale.checked;
+        active.rotation = parseFloat(rotationInput.value);
+        active.tiltPitch = parseFloat(tiltPitchInput.value);
+        active.tiltYaw = parseFloat(tiltYawInput.value);
+        active.flipX = flipXCheck.checked;
+        active.flipY = flipYCheck.checked;
+        active.snapX = snapXCheck.checked;
+        active.offsetX = parseFloat(offsetXInput.value);
+        active.offsetY = parseFloat(offsetYInput.value);
+        active.steps = parseInt(stepsInput.value);
+        active.uniformResample = uniformResampleCheck.checked;
+        active.simplify = parseFloat(simplifyInput.value);
+    }
+
+    // ==========================================
+    // 4. AUTOSAVE & STATE PERSISTENCE
+    // ==========================================
+    const STORAGE_KEY = 'svgToAff_settings_v3';
+
+    function getFullSnapshot() {
+        updateActiveLayerFromUI();
+        return {
+            workspaceMode: workspaceMode,
+            layers: layers.filter(l => l && l.id).map(l => ({
+                id: l.id, name: l.name, visible: l.visible, svgPath: l.svgPath,
+                baseTime: l.baseTime, scaleX: l.scaleX, scaleY: l.scaleY,
+                linkScale: l.linkScale, rotation: l.rotation, tiltPitch: l.tiltPitch,
+                tiltYaw: l.tiltYaw, flipX: l.flipX, flipY: l.flipY, snapX: l.snapX,
+                offsetX: l.offsetX, offsetY: l.offsetY, steps: l.steps,
+                uniformResample: l.uniformResample, simplify: l.simplify
+            })),
+            activeLayerId: activeLayerId,
+            exportMode: exportMode,
+            colorblind: colorblindToggle.checked,
+            tooltips: tooltipsEnabled,
+            theme: themeSelect.value,
+            customColors: themeSelect.value === 'custom' ? {
+                accent: document.getElementById('customAccent').value,
+                bg: document.getElementById('customBg').value,
+                card: document.getElementById('customCard').value,
+                playfield: document.getElementById('customPlayfield').value,
+                text: document.getElementById('customText').value
+            } : null
+        };
+    }
+
+    function applyFullSnapshot(s) {
+        if (!s) return;
+        
+        if (s.workspaceMode) workspaceMode = s.workspaceMode;
+
+        if (s.layers && Array.isArray(s.layers)) {
+            layers = s.layers.filter(l => l && typeof l === 'object' && l.id && l.name).map(l => ({
+                ...l,
+                cachedCenter: null, rawPathCache: null, lastTransformed: null
+            }));
+        }
+
+        if (layers.length === 0) {
+            const def = createDefaultLayer('Layer 1');
+            layers = [def];
+            activeLayerId = def.id;
+        } else {
+            activeLayerId = (s.activeLayerId && layers.some(item => item.id === s.activeLayerId)) ? s.activeLayerId : layers[0].id;
+        }
+
+        if (s.exportMode) setExportMode(s.exportMode);
+        if (typeof s.colorblind === 'boolean') {
+            colorblindToggle.checked = s.colorblind;
+            isColorblind = s.colorblind;
+        }
+        if (typeof s.tooltips === 'boolean') {
+            tooltipsEnabled = s.tooltips;
+            document.getElementById('toggleTooltips').checked = s.tooltips;
+        }
+        if (s.theme) {
+            themeSelect.value = s.theme;
+            if (s.theme === 'custom' && s.customColors) {
+                document.getElementById('customAccent').value = s.customColors.accent;
+                document.getElementById('customBg').value = s.customColors.bg;
+                document.getElementById('customCard').value = s.customColors.card;
+                document.getElementById('customPlayfield').value = s.customColors.playfield;
+                document.getElementById('customText').value = s.customColors.text;
+            }
+            changeTheme(s.theme);
+        }
+
+        applyModeUI();
+        syncUIToActiveLayer();
+        scheduleRender(true);
+    }
+
+    let autosaveTimer = null;
+    function scheduleAutosave() {
+        clearTimeout(autosaveTimer);
+        autosaveTimer = setTimeout(() => {
+            try { localStorage.setItem(STORAGE_KEY, JSON.stringify(getFullSnapshot())); } catch(e){}
+        }, 400);
+    }
+
+    function restoreAutosave() {
+        try {
+            const raw = localStorage.getItem(STORAGE_KEY);
+            if (raw) applyFullSnapshot(JSON.parse(raw));
+            else factoryResetState();
+        } catch(e) {
+            factoryResetState();
+        }
+    }
+
+    function factoryResetState() {
+        layers = [createDefaultLayer('Main Path')];
+        activeLayerId = layers[0].id;
+        workspaceMode = 'single';
+        exportMode = 'active';
+        applyModeUI();
+        syncUIToActiveLayer();
+        scheduleRender(true);
+    }
+
+    // Factory Reset button logic
+    function factoryReset() {
+        if (confirm("Reset everything to factory defaults? This will clear all paths, layers, caches, and saved settings.")) {
+            try {
+                localStorage.removeItem(STORAGE_KEY);
+                localStorage.removeItem('svgToAff_settings_v1');
+                localStorage.removeItem('svgToAff_settings_v2');
+            } catch(e){}
+
+            undoStack = [];
+            redoStack = [];
+            preGestureSnapshot = null;
+            layerIdCounter = 1;
+
+            factoryResetState();
+        }
+    }
+
+    // ==========================================
+    // 5. UNDO / REDO HISTORY STACK
+    // ==========================================
+    let undoStack = [];
+    let redoStack = [];
+    let preGestureSnapshot = null;
+    const MAX_UNDO = 50;
+
+    function commitUndoSnapshot() {
+        if (!preGestureSnapshot) preGestureSnapshot = getFullSnapshot();
+    }
+
+    function pushUndoIfChanged() {
+        if (!preGestureSnapshot) return;
+        const current = getFullSnapshot();
+        if (JSON.stringify(current) !== JSON.stringify(preGestureSnapshot)) {
+            undoStack.push(preGestureSnapshot);
+            if (undoStack.length > MAX_UNDO) undoStack.shift();
+            redoStack = [];
+        }
+        preGestureSnapshot = null;
+    }
+
+    function undo() {
+        if (undoStack.length === 0) return;
+        redoStack.push(getFullSnapshot());
+        applyFullSnapshot(undoStack.pop());
+        scheduleAutosave();
+    }
+
+    function redo() {
+        if (redoStack.length === 0) return;
+        undoStack.push(getFullSnapshot());
+        applyFullSnapshot(redoStack.pop());
+        scheduleAutosave();
+    }
+
+    document.addEventListener('keydown', e => {
+        if (document.activeElement && document.activeElement.tagName === 'TEXTAREA') return;
+        if (!(e.ctrlKey || e.metaKey)) return;
+        const key = e.key.toLowerCase();
+        if (key === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); }
+        else if (key === 'y') { e.preventDefault(); redo(); }
+    });
+
+    // Viewport camera and mouse interaction state
     let camera = { x: 0, y: 0, zoom: 60 };
     let interactMode = 'none'; 
     let lastMouse = { x: 0, y: 0 };
-    let bbox = { x: 0, y: 0, w: 0, h: 0 };
-    
-    // Performance State & Caching
-    let cachedCenter = null;
+    let activeBbox = { x: 0, y: 0, w: 0, h: 0 };
+
+    let isColorblind = false;
+    let themeColors = { path: '#00f2ff', accent: '#7654ff', grid: 'rgba(255,255,255,0.08)', playfield: '#00ff66', textDim: '#888888' };
     let renderRequested = false;
     let affDebounceTimer = null;
     let pendingAffText = "";
     let pendingLineCount = 0;
+    let pendingRawLineCount = 0;
+    let loadedFont = null;
 
-    // Transformation State
+    // Load OpenType font for Text-to-Path functionality
+    if (typeof opentype !== 'undefined') {
+        opentype.load('https://cdn.jsdelivr.net/npm/roboto-font@0.1.0/fonts/Roboto/roboto-regular-webfont.woff', function(err, font) {
+            if (!err) loadedFont = font;
+        });
+    }
+
     let startScaleX = 0, startScaleY = 0;
     let startDistX = 0, startDistY = 0;
     let startCx = 0, startCy = 0;
     const handleSize = 8;
 
+    // Handle panel resizing drag actions
     function setupResizer(handle, target, isRight) {
         handle.addEventListener('mousedown', (e) => {
             handle.classList.add('active');
@@ -752,12 +1325,21 @@
     setupResizer(document.getElementById('resizerLeft'), document.getElementById('leftPanel'), false);
     setupResizer(document.getElementById('resizerRight'), document.getElementById('rightPanel'), true);
 
+    [scaleXInput, scaleYInput, rotationInput, tiltPitchInput, tiltYawInput, offsetXInput, offsetYInput,
+     flipXCheck, flipYCheck, snapXCheck, linkScale, stepsInput, simplifyInput, baseTimeInput, themeSelect]
+        .forEach(el => {
+            const startEvent = (el.type === 'range' || el.type === 'checkbox') ? 'pointerdown' : 'focus';
+            el.addEventListener(startEvent, commitUndoSnapshot);
+            el.addEventListener('change', pushUndoIfChanged);
+        });
+
     function resizeCanvas() {
         canvas.width = viewport.clientWidth;
         canvas.height = viewport.clientHeight;
         scheduleRender();
     }
 
+    // Convert Arcaea playfield coordinates to screen pixels
     function toSc(ax, ay) {
         return {
             x: (canvas.width / 2) + camera.x + (ax * camera.zoom),
@@ -765,22 +1347,61 @@
         };
     }
 
-    function drawGrid() {
+    function isThemeLight() {
+        const t = themeSelect.value;
+        if (['minimalLight', 'sakura', 'slateLight', 'solarizedLight'].includes(t)) return true;
+        if (t === 'custom') {
+            const bg = document.getElementById('customBg').value.replace('#', '');
+            const r = parseInt(bg.substr(0, 2), 16) || 0;
+            const g = parseInt(bg.substr(2, 2), 16) || 0;
+            const b = parseInt(bg.substr(4, 2), 16) || 0;
+            return (r * 0.299 + g * 0.587 + b * 0.114) > 150;
+        }
+        return false;
+    }
+
+    function toggleColorblindMode(enabled) {
+        isColorblind = enabled;
+        refreshThemeColors();
+        scheduleRender();
+    }
+
+    function refreshThemeColors() {
+        const lightMode = isThemeLight();
+        if (isColorblind) {
+            themeColors = lightMode ? {
+                path: '#0072B2', accent: '#D55E00', grid: 'rgba(0, 0, 0, 0.15)', playfield: '#009E73', textDim: '#111111'
+            } : {
+                path: '#F0E442', accent: '#0072B2', grid: 'rgba(255, 255, 255, 0.15)', playfield: '#D55E00', textDim: '#FFFFFF'
+            };
+            return;
+        }
         const computedStyle = getComputedStyle(document.documentElement);
-        const gridColor = computedStyle.getPropertyValue('--grid').trim() || 'rgba(255,255,255,0.08)';
-        const playfieldColor = computedStyle.getPropertyValue('--playfield').trim() || '#00ff66';
-        const textDimColor = computedStyle.getPropertyValue('--text-dim').trim() || '#888';
+        themeColors = {
+            path: computedStyle.getPropertyValue('--cyan').trim() || '#00f2ff',
+            accent: computedStyle.getPropertyValue('--accent').trim() || '#7654ff',
+            grid: computedStyle.getPropertyValue('--grid').trim() || 'rgba(255,255,255,0.08)',
+            playfield: computedStyle.getPropertyValue('--playfield').trim() || '#00ff66',
+            textDim: computedStyle.getPropertyValue('--text-dim').trim() || '#888888'
+        };
+    }
+
+    // Draw the Arcaea playfield grid lines on canvas
+    function drawGrid() {
+        const gridColor = themeColors.grid;
+        const playfieldColor = themeColors.playfield;
+        const textDimColor = themeColors.textDim;
 
         ctx.strokeStyle = gridColor;
         ctx.lineWidth = 1;
-        for(let i=-5; i<=6; i++) {
+        for (let i=-5; i<=6; i++) {
             let v1 = toSc(i, -5), v2 = toSc(i, 6);
             ctx.beginPath(); ctx.moveTo(v1.x, v1.y); ctx.lineTo(v2.x, v2.y); ctx.stroke();
             let h1 = toSc(-5, i), h2 = toSc(6, i);
             ctx.beginPath(); ctx.moveTo(h1.x, h1.y); ctx.lineTo(h2.x, h2.y); ctx.stroke();
         }
 
-        // Playfield Box & Fill
+        // Target lane boundaries box
         const p1 = toSc(-0.5, 1.0);
         const p2 = toSc(1.5, -0.2);
         
@@ -795,11 +1416,11 @@
         ctx.font = '700 10px monospace';
         ctx.fillText("PLAYFIELD", p1.x + 6, p1.y + 15);
 
-        // Center Axis Guideline (Low Opacity)
+        // Center line guide
         const c1 = toSc(0.5, 1.2);
         const c2 = toSc(0.5, -0.4);
         ctx.save();
-        ctx.globalAlpha = 0.2;
+        ctx.globalAlpha = 0.25;
         ctx.strokeStyle = textDimColor;
         ctx.setLineDash([4, 4]);
         ctx.beginPath(); ctx.moveTo(c1.x, c1.y); ctx.lineTo(c2.x, c2.y); ctx.stroke();
@@ -809,41 +1430,104 @@
         ctx.restore();
     }
 
-    // Cached SVG Bounding-Box Midpoint Calculation
-    function getSvgCenter() {
-        if (cachedCenter) return cachedCenter;
-        
-        const subPaths = svgInput.value.split(/(?=[Mm])/g);
+    // Cache parsed SVG points so we don't recalculate them on every frame
+    function ensureLayerPathCache(layer) {
+        if (!layer) return;
+        if (layer.rawPathCache) return;
+
+        const pathStrRaw = layer.svgPath || '';
+        const subPaths = pathStrRaw.split(/(?=[Mm])/g).filter(s => s.trim().length > 0);
+        const totalSteps = layer.steps || 60;
+        const isUniform = layer.uniformResample;
         let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-        
+        layer.rawPathCache = [];
+
+        const pathDataList = [];
+        let grandTotalLength = 0;
+
         subPaths.forEach(pathStr => {
-            if(!pathStr.trim()) return;
             try {
                 pathHelper.setAttribute('d', pathStr);
                 const len = pathHelper.getTotalLength();
-                if(len === 0) return;
-                const steps = 40; 
-                for(let i=0; i<=steps; i++) {
-                    const p = pathHelper.getPointAtLength((i/steps) * len);
-                    minX = Math.min(minX, p.x);
-                    maxX = Math.max(maxX, p.x);
-                    minY = Math.min(minY, p.y);
-                    maxY = Math.max(maxY, p.y);
+                if (len > 0) {
+                    pathDataList.push({ d: pathStr, len: len });
+                    grandTotalLength += len;
                 }
             } catch(e){}
         });
-        
-        cachedCenter = minX !== Infinity ? { x: (minX + maxX) / 2, y: (minY + maxY) / 2 } : { x: 0, y: 0 };
-        return cachedCenter;
+
+        if (grandTotalLength === 0) {
+            layer.cachedCenter = { x: 0, y: 0 };
+            return;
+        }
+
+        pathDataList.forEach(item => {
+            try {
+                pathHelper.setAttribute('d', item.d);
+                const subLen = item.len;
+                let subSteps = totalSteps;
+                
+                if (isUniform) {
+                    subSteps = Math.max(2, Math.round((subLen / grandTotalLength) * totalSteps));
+                }
+
+                const pts = [];
+                for (let i = 0; i <= subSteps; i++) {
+                    const p = pathHelper.getPointAtLength((i / subSteps) * subLen);
+                    pts.push({ x: p.x, y: p.y });
+                    minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);
+                    minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y);
+                }
+                layer.rawPathCache.push(pts);
+            } catch(e){}
+        });
+
+        layer.cachedCenter = minX !== Infinity ? { x: (minX + maxX) / 2, y: (minY + maxY) / 2 } : { x: 0, y: 0 };
     }
 
-    function invalidateCenterCache() {
-        cachedCenter = null;
+    function invalidateActiveCenterCache() {
+        const active = getActiveLayer();
+        if (active) {
+            active.cachedCenter = null;
+            active.rawPathCache = null;
+        }
     }
 
-    scaleXInput.addEventListener('input', () => { if(linkScale.checked) scaleYInput.value = scaleXInput.value; scheduleRender(); });
-    scaleYInput.addEventListener('input', () => { if(linkScale.checked) scaleXInput.value = scaleYInput.value; scheduleRender(); });
+    scaleXInput.addEventListener('input', () => { 
+        if (linkScale.checked) scaleYInput.value = scaleXInput.value; 
+        updateActiveLayerFromUI(); 
+        scheduleRender(); 
+    });
+    scaleYInput.addEventListener('input', () => { 
+        if (linkScale.checked) scaleYInput.value = scaleXInput.value; 
+        updateActiveLayerFromUI(); 
+        scheduleRender(); 
+    });
+    stepsInput.addEventListener('input', () => { 
+        updateActiveLayerFromUI(); 
+        invalidateActiveCenterCache(); 
+        scheduleRender(true); 
+    });
+    tiltPitchInput.addEventListener('input', () => { updateActiveLayerFromUI(); scheduleRender(); });
+    tiltYawInput.addEventListener('input', () => { updateActiveLayerFromUI(); scheduleRender(); });
 
+    function reset3DTilt() {
+        commitUndoSnapshot();
+        tiltPitchInput.value = 0;
+        tiltYawInput.value = 0;
+        updateActiveLayerFromUI();
+        scheduleRender();
+        pushUndoIfChanged();
+    }
+
+    function setExportMode(mode) {
+        exportMode = mode;
+        document.getElementById('btnExportActive').className = 'segmented-btn' + (mode === 'active' ? ' active' : '');
+        document.getElementById('btnExportAll').className = 'segmented-btn' + (mode === 'all' ? ' active' : '');
+        scheduleAffTextUpdate(true);
+    }
+
+    // Optimized render loop using requestAnimationFrame
     function scheduleRender(immediateText = false) {
         if (!renderRequested) {
             renderRequested = true;
@@ -853,6 +1537,7 @@
             });
         }
         scheduleAffTextUpdate(immediateText);
+        scheduleAutosave();
     }
 
     function scheduleAffTextUpdate(immediate = false) {
@@ -865,9 +1550,79 @@
         }
     }
 
+    function perpendicularDistance(p, a, b) {
+        const dx = b.x - a.x, dy = b.y - a.y;
+        const len = Math.hypot(dx, dy);
+        if (len === 0) return Math.hypot(p.x - a.x, p.y - a.y);
+        return Math.abs(dy * p.x - dx * p.y + b.x * a.y - b.y * a.x) / len;
+    }
+
+    // Ramer-Douglas-Peucker line simplification algorithm to prune extra points
+    function simplifyPoints(points, epsilon) {
+        if (epsilon <= 0 || points.length < 3) return points;
+        const end = points.length - 1;
+        let dmax = 0, index = 0;
+        for (let i = 1; i < end; i++) {
+            const d = perpendicularDistance(points[i], points[0], points[end]);
+            if (d > dmax) { index = i; dmax = d; }
+        }
+        if (dmax > epsilon) {
+            const left = simplifyPoints(points.slice(0, index + 1), epsilon);
+            const right = simplifyPoints(points.slice(index), epsilon);
+            return left.slice(0, -1).concat(right);
+        }
+        return [points[0], points[end]];
+    }
+
+    // Convert vector point arrays into .aff syntax lines
+    function buildAffTextForLayer(layer) {
+        if (!layer || !layer.lastTransformed) return { lines: [], rawCount: 0 };
+        const t = layer.baseTime;
+        const eps = layer.simplify || 0;
+        const lines = [];
+        let rawCount = 0;
+
+        layer.lastTransformed.forEach(points => {
+            rawCount += Math.max(0, points.length - 1);
+            const pts = eps > 0 ? simplifyPoints(points, eps) : points;
+            for (let i = 1; i < pts.length; i++) {
+                const prev = pts[i - 1], cur = pts[i];
+                lines.push(`arc(${t},${t},${prev.x.toFixed(3)},${cur.x.toFixed(3)},s,${prev.y.toFixed(3)},${cur.y.toFixed(3)},0,none,true);`);
+            }
+        });
+        return { lines, rawCount };
+    }
+
+    // Flush compiled .aff code to right side output box
     function flushAffText() {
+        let lines = [];
+        let rawCount = 0;
+
+        if (workspaceMode === 'single' || exportMode === 'active') {
+            const active = getActiveLayer();
+            const res = buildAffTextForLayer(active);
+            lines = res.lines;
+            rawCount = res.rawCount;
+        } else {
+            layers.forEach(l => {
+                if (l && l.visible) {
+                    const res = buildAffTextForLayer(l);
+                    lines = lines.concat(res.lines);
+                    rawCount += res.rawCount;
+                }
+            });
+        }
+
+        pendingAffText = lines.join('\n');
+        pendingLineCount = lines.length;
+        pendingRawLineCount = rawCount;
+
         affOutput.value = pendingAffText;
-        lineCountDisplay.innerText = `${pendingLineCount} lines`;
+        const prefix = (workspaceMode === 'single' || exportMode === 'active') ? 'Output: ' : 'All Visible: ';
+        lineCountDisplay.innerText = (pendingRawLineCount > pendingLineCount && pendingLineCount > 0)
+            ? `${prefix}${pendingLineCount} lines (from ${pendingRawLineCount})`
+            : `${prefix}${pendingLineCount} lines`;
+
         if (pendingLineCount > 650) {
             warningBanner.style.display = 'block';
             lineCountDisplay.style.color = 'var(--danger)';
@@ -877,107 +1632,137 @@
         }
     }
 
+    // Math function to rotate and project points in 3D perspective space
+    function transformPoint3D(rawX, rawY, center, sx, sy, roll, pitch, yaw, flipX, flipY, ox, oy) {
+        let lx = (rawX - center.x) * sx;
+        let ly = (rawY - center.y) * sy;
+
+        if (flipX) lx *= -1;
+        if (flipY) ly *= -1;
+
+        let x = lx, y = ly, z = 0;
+
+        const cosR = Math.cos(roll), sinR = Math.sin(roll);
+        let rx = x * cosR - y * sinR;
+        let ry = x * sinR + y * cosR;
+        let rz = z;
+
+        const cosP = Math.cos(pitch), sinP = Math.sin(pitch);
+        let px = rx;
+        let py = ry * cosP - rz * sinP;
+        let pz = ry * sinP + rz * cosP;
+
+        const cosY = Math.cos(yaw), sinY = Math.sin(yaw);
+        let yx = px * cosY + pz * sinY;
+        let yy = py;
+        let yz = -px * sinY + pz * cosY;
+
+        const fixedDepth = 500;
+        const scalePerspective = fixedDepth / (fixedDepth + yz);
+        const projX = yx * scalePerspective;
+        const projY = yy * scalePerspective;
+
+        return { x: projX + ox, y: -projY + oy };
+    }
+
+    // Core Canvas rendering routine
     function render() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         drawGrid();
 
-        const center = getSvgCenter();
-        const sx = parseFloat(scaleXInput.value);
-        const sy = parseFloat(scaleYInput.value);
-        const r = parseFloat(document.getElementById('rotation').value) * Math.PI / 180;
-        
-        if(snapXCheck.checked) offsetXInput.value = "0.50";
-        const ox = parseFloat(offsetXInput.value);
-        const oy = parseFloat(offsetYInput.value);
-        
-        const steps = parseInt(document.getElementById('steps').value);
-        const flipX = document.getElementById('flipX').checked;
-        const flipY = document.getElementById('flipY').checked;
-        const time = parseInt(baseTimeInput.value) || 1000;
+        activeBbox = { x: 0, y: 0, w: 0, h: 0 };
+        const active = getActiveLayer();
 
-        document.getElementById('v_scaleX').innerText = sx.toFixed(6);
-        document.getElementById('v_scaleY').innerText = sy.toFixed(6);
-        document.getElementById('v_rot').innerText = (r * 180 / Math.PI).toFixed(0);
-        document.getElementById('v_offX').innerText = ox.toFixed(2);
-        document.getElementById('v_offY').innerText = oy.toFixed(2);
-        document.getElementById('v_steps').innerText = steps;
+        const targetLayers = (workspaceMode === 'single') ? [active] : layers;
 
-        const subPaths = svgInput.value.split(/(?=[Mm])/g);
-        let affLines = [];
-        let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+        targetLayers.forEach(layer => {
+            if (!layer || !layer.visible) return;
 
-        const computedStyle = getComputedStyle(document.documentElement);
-        const pathColor = computedStyle.getPropertyValue('--cyan').trim() || '#00f2ff';
-        const accentColor = computedStyle.getPropertyValue('--accent').trim() || '#7654ff';
+            ensureLayerPathCache(layer);
+            const center = layer.cachedCenter || {x:0, y:0};
+            const sx = layer.scaleX ?? 0.05;
+            const sy = layer.scaleY ?? 0.05;
+            const roll = (layer.rotation ?? 0) * Math.PI / 180;
+            const pitch = (layer.tiltPitch ?? 0) * Math.PI / 180;
+            const yaw = (layer.tiltYaw ?? 0) * Math.PI / 180;
 
-        ctx.strokeStyle = pathColor;
-        ctx.lineWidth = 2;
-        ctx.lineJoin = 'round';
-        ctx.lineCap = 'round';
+            if (layer.snapX && layer.id === active.id) {
+                offsetXInput.value = "0.50";
+                layer.offsetX = 0.5;
+            }
+            const ox = layer.offsetX ?? 0.5;
+            const oy = layer.offsetY ?? 0.5;
 
-        subPaths.forEach(pathStr => {
-            if(!pathStr.trim()) return;
-            try {
-                pathHelper.setAttribute('d', pathStr);
-                const len = pathHelper.getTotalLength();
-                if(len === 0) return;
+            const flipX = layer.flipX;
+            const flipY = layer.flipY;
 
-                let prevP = null;
-                ctx.beginPath();
-                for(let i=0; i <= steps; i++) {
-                    const raw = pathHelper.getPointAtLength((i/steps) * len);
-                    
-                    let lx = (raw.x - center.x) * sx;
-                    let ly = (raw.y - center.y) * sy;
-                    
-                    if(flipX) lx *= -1;
-                    if(flipY) ly *= -1;
-                    
-                    const rx = lx * Math.cos(r) - ly * Math.sin(r);
-                    const ry = lx * Math.sin(r) + ly * Math.cos(r);
-                    const fx = rx + ox, fy = -ry + oy;
-                    const sc = toSc(fx, fy);
+            let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+            layer.lastTransformed = [];
 
-                    minX = Math.min(minX, sc.x); maxX = Math.max(maxX, sc.x);
-                    minY = Math.min(minY, sc.y); maxY = Math.max(maxY, sc.y);
+            const isActive = layer.id === active.id;
+            ctx.strokeStyle = isActive ? themeColors.path : themeColors.path + '66';
+            ctx.lineWidth = isActive ? 2 : 1;
+            ctx.lineJoin = 'round';
+            ctx.lineCap = 'round';
 
-                    if(i === 0) ctx.moveTo(sc.x, sc.y);
-                    else {
-                        ctx.lineTo(sc.x, sc.y);
-                        affLines.push(`arc(${time},${time},${prevP.x.toFixed(3)},${fx.toFixed(3)},s,${prevP.y.toFixed(3)},${fy.toFixed(3)},0,none,true);`);
+            if (layer.rawPathCache) {
+                layer.rawPathCache.forEach(pts => {
+                    if (pts.length === 0) return;
+                    const transformed = [];
+                    ctx.beginPath();
+                    for (let i = 0; i < pts.length; i++) {
+                        const proj = transformPoint3D(pts[i].x, pts[i].y, center, sx, sy, roll, pitch, yaw, flipX, flipY, ox, oy);
+                        const sc = toSc(proj.x, proj.y);
+
+                        minX = Math.min(minX, sc.x); maxX = Math.max(maxX, sc.x);
+                        minY = Math.min(minY, sc.y); maxY = Math.max(maxY, sc.y);
+
+                        if (i === 0) ctx.moveTo(sc.x, sc.y);
+                        else ctx.lineTo(sc.x, sc.y);
+
+                        transformed.push({ x: proj.x, y: proj.y });
                     }
-                    prevP = {x: fx, y: fy};
-                }
-                ctx.stroke();
-            } catch(err) {}
-        });
-        
-        pendingAffText = affLines.join('\n');
-        pendingLineCount = affLines.length;
+                    ctx.stroke();
+                    layer.lastTransformed.push(transformed);
+                });
+            }
 
-        if(minX !== Infinity) {
-            minX -= 6; minY -= 6; maxX += 6; maxY += 6;
-            bbox = { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
-            
-            ctx.strokeStyle = accentColor;
-            ctx.lineWidth = 1;
-            ctx.strokeRect(bbox.x, bbox.y, bbox.w, bbox.h);
-            
-            const pivotX = bbox.x + bbox.w/2;
-            const pivotY = bbox.y + bbox.h/2;
-            ctx.beginPath();
-            ctx.moveTo(pivotX - 5, pivotY); ctx.lineTo(pivotX + 5, pivotY);
-            ctx.moveTo(pivotX, pivotY - 5); ctx.lineTo(pivotX, pivotY + 5);
-            ctx.stroke();
+            // Draw bounding transform box over active selection
+            if (isActive && minX !== Infinity) {
+                minX -= 6; minY -= 6; maxX += 6; maxY += 6;
+                activeBbox = { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
 
-            ctx.fillStyle = pathColor;
-            [{x: bbox.x, y: bbox.y}, {x: bbox.x + bbox.w, y: bbox.y}, {x: bbox.x, y: bbox.y + bbox.h}, {x: bbox.x + bbox.w, y: bbox.y + bbox.h}].forEach(p => {
+                ctx.strokeStyle = themeColors.accent;
+                ctx.lineWidth = 1;
+                ctx.strokeRect(activeBbox.x, activeBbox.y, activeBbox.w, activeBbox.h);
+
+                const pivotX = activeBbox.x + activeBbox.w/2;
+                const pivotY = activeBbox.y + activeBbox.h/2;
                 ctx.beginPath();
-                ctx.arc(p.x, p.y, handleSize/1.5, 0, Math.PI * 2);
-                ctx.fill();
-            });
-        } else {
-            bbox = { x: 0, y: 0, w: 0, h: 0 };
+                ctx.moveTo(pivotX - 5, pivotY); ctx.lineTo(pivotX + 5, pivotY);
+                ctx.moveTo(pivotX, pivotY - 5); ctx.lineTo(pivotX, pivotY + 5);
+                ctx.stroke();
+
+                ctx.fillStyle = themeColors.path;
+                [{x: activeBbox.x, y: activeBbox.y}, {x: activeBbox.x + activeBbox.w, y: activeBbox.y}, {x: activeBbox.x, y: activeBbox.y + activeBbox.h}, {x: activeBbox.x + activeBbox.w, y: activeBbox.y + activeBbox.h}].forEach(p => {
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, handleSize/1.5, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+            }
+        });
+
+        // Sync numeric indicators
+        if (active) {
+            vScaleX.innerText = (active.scaleX ?? 0.05).toFixed(6);
+            vScaleY.innerText = (active.scaleY ?? 0.05).toFixed(6);
+            vRot.innerText = (active.rotation ?? 0).toFixed(0);
+            vPitch.innerText = (active.tiltPitch ?? 0).toFixed(0);
+            vYaw.innerText = (active.tiltYaw ?? 0).toFixed(0);
+            vOffX.innerText = (active.offsetX ?? 0.5).toFixed(2);
+            vOffY.innerText = (active.offsetY ?? 0.5).toFixed(2);
+            vSteps.innerText = active.steps ?? 60;
+            vSimplify.innerText = (active.simplify ?? 0.0).toFixed(3);
         }
     }
 
@@ -988,29 +1773,32 @@
 
     function isOverHandle(pos) {
         const hsHalf = handleSize;
-        const corners = [{x: bbox.x, y: bbox.y}, {x: bbox.x + bbox.w, y: bbox.y}, {x: bbox.x, y: bbox.y + bbox.h}, {x: bbox.x + bbox.w, y: bbox.y + bbox.h}];
+        const corners = [{x: activeBbox.x, y: activeBbox.y}, {x: activeBbox.x + activeBbox.w, y: activeBbox.y}, {x: activeBbox.x, y: activeBbox.y + activeBbox.h}, {x: activeBbox.x + activeBbox.w, y: activeBbox.y + activeBbox.h}];
         return corners.some(c => Math.hypot(pos.x - c.x, pos.y - c.y) <= hsHalf + 4);
     }
 
     function isOverBox(pos) {
-        return pos.x >= bbox.x && pos.x <= bbox.x + bbox.w && pos.y >= bbox.y && pos.y <= bbox.y + bbox.h;
+        return pos.x >= activeBbox.x && pos.x <= activeBbox.x + activeBbox.w && pos.y >= activeBbox.y && pos.y <= activeBbox.y + activeBbox.h;
     }
 
+    // Viewport interactive drag listeners
     viewport.addEventListener('mousedown', e => {
         const pos = getMousePos(e);
-        if(e.button === 2 || e.ctrlKey) { 
+        if (e.button === 2 || e.ctrlKey) { 
             interactMode = 'pan'; 
             lastMouse = pos; 
             return; 
         }
-        if(e.button === 0 && bbox.w > 0) {
-            if(isOverHandle(pos)) {
+        if (e.button === 0 && activeBbox.w > 0) {
+            if (isOverHandle(pos)) {
                 interactMode = 'resize'; lastMouse = pos;
+                commitUndoSnapshot();
                 startScaleX = parseFloat(scaleXInput.value); startScaleY = parseFloat(scaleYInput.value);
-                startCx = bbox.x + bbox.w/2; startCy = bbox.y + bbox.h/2;
+                startCx = activeBbox.x + activeBbox.w/2; startCy = activeBbox.y + activeBbox.h/2;
                 startDistX = Math.abs(pos.x - startCx) || 1; startDistY = Math.abs(pos.y - startCy) || 1;
             } else if (isOverBox(pos)) {
                 interactMode = 'move'; lastMouse = pos;
+                commitUndoSnapshot();
             }
         }
     });
@@ -1022,26 +1810,27 @@
             interactMode = 'none';
         }
 
-        if(interactMode === 'none') {
-            if(bbox.w > 0 && isOverHandle(pos)) canvas.style.cursor = 'nwse-resize';
-            else if(bbox.w > 0 && isOverBox(pos)) canvas.style.cursor = 'move';
+        if (interactMode === 'none') {
+            if (activeBbox.w > 0 && isOverHandle(pos)) canvas.style.cursor = 'nwse-resize';
+            else if (activeBbox.w > 0 && isOverBox(pos)) canvas.style.cursor = 'move';
             else canvas.style.cursor = 'crosshair';
         }
-        if(interactMode === 'pan') {
+        if (interactMode === 'pan') {
             camera.x += (pos.x - lastMouse.x); camera.y += (pos.y - lastMouse.y);
             lastMouse = pos; scheduleRender();
         } 
-        else if(interactMode === 'move') {
+        else if (interactMode === 'move') {
             const dxArc = (pos.x - lastMouse.x) / camera.zoom;
             const dyArc = -((pos.y - lastMouse.y) / camera.zoom); 
-            if(!snapXCheck.checked) offsetXInput.value = (parseFloat(offsetXInput.value) + dxArc).toFixed(3);
+            if (!snapXCheck.checked) offsetXInput.value = (parseFloat(offsetXInput.value) + dxArc).toFixed(3);
             offsetYInput.value = (parseFloat(offsetYInput.value) + dyArc).toFixed(3);
+            updateActiveLayerFromUI();
             lastMouse = pos; scheduleRender();
         }
-        else if(interactMode === 'resize') {
+        else if (interactMode === 'resize') {
             const ratioX = Math.abs(pos.x - startCx) / startDistX;
             const ratioY = Math.abs(pos.y - startCy) / startDistY;
-            if(linkScale.checked) {
+            if (linkScale.checked) {
                 const best = Math.max(ratioX, ratioY);
                 scaleXInput.value = (startScaleX * best).toFixed(6);
                 scaleYInput.value = (startScaleY * best).toFixed(6);
@@ -1049,6 +1838,7 @@
                 scaleXInput.value = Math.max(0.000001, startScaleX * ratioX).toFixed(6);
                 scaleYInput.value = Math.max(0.000001, startScaleY * ratioY).toFixed(6);
             }
+            updateActiveLayerFromUI();
             scheduleRender();
         }
     });
@@ -1056,6 +1846,7 @@
     window.addEventListener('mouseup', () => { 
         if (interactMode !== 'none') {
             scheduleAffTextUpdate(true);
+            pushUndoIfChanged();
         }
         interactMode = 'none'; 
         canvas.style.cursor = 'crosshair'; 
@@ -1066,47 +1857,176 @@
     window.addEventListener('resize', resizeCanvas);
 
     svgInput.addEventListener('input', () => {
-        invalidateCenterCache();
+        updateActiveLayerFromUI();
+        invalidateActiveCenterCache();
         scheduleRender();
     });
 
     document.querySelectorAll('input:not(#svgInput), textarea:not(#svgInput)').forEach(el => {
-        if(el.id !== 'scaleX' && el.id !== 'scaleY') el.addEventListener('input', () => scheduleRender());
+        if (el.id !== 'scaleX' && el.id !== 'scaleY') {
+            el.addEventListener('input', () => {
+                updateActiveLayerFromUI();
+                scheduleRender();
+            });
+        }
     });
 
-    function processSvgFile(file) {
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = ev => {
-            const doc = new DOMParser().parseFromString(ev.target.result, "image/svg+xml");
-            const paths = Array.from(doc.querySelectorAll('path')).map(p => p.getAttribute('d')).filter(d => d).join(' ');
-            if (paths.trim().length === 0) {
-                alert("No path data found in this SVG. (Ensure your shape is converted to a path)");
-                return;
+    // ==========================================
+    // 6. TEXT-TO-PATH GENERATION ENGINE
+    // ==========================================
+    function generateTextPath() {
+        const txt = document.getElementById('textInput').value.trim();
+        if (!txt) return;
+
+        if (loadedFont) {
+            const pathData = loadedFont.getPath(txt, 0, 100, 120).toPathData(3);
+            const appendMode = document.getElementById('appendShape').checked;
+            if (appendMode && svgInput.value.trim().length > 0) {
+                svgInput.value = svgInput.value.trim() + " " + pathData;
+            } else {
+                svgInput.value = pathData;
             }
-            svgInput.value = paths;
-            invalidateCenterCache();
+            updateActiveLayerFromUI();
+            invalidateActiveCenterCache();
             scheduleRender(true);
-        };
-        reader.readAsText(file);
+        } else {
+            alert("Vector font is still loading. Please try again in a moment.");
+        }
     }
 
-    fileInput.onchange = e => processSvgFile(e.target.files[0]);
+    // ==========================================
+    // 7. PRESET SHAPES LIBRARY
+    // ==========================================
+    const shapePresets = {
+        circle: "M20,100 A80,80 0 1,0 180,100 A80,80 0 1,0 20,100 Z",
+        square: "M20,20 L180,20 L180,180 L20,180 Z",
+        triangle: "M100,20 L180,180 L20,180 Z",
+        rectangle: "M10,40 L190,40 L190,160 L10,160 Z",
+        oval: "M20,100 A80,40 0 1,0 180,100 A80,40 0 1,0 20,100 Z",
+        diamond: "M100,20 L180,100 L100,180 L20,100 Z",
+        pentagon: "M100,20 L176,75 L147,165 L53,165 L24,75 Z",
+        hexagon: "M100,20 L169,60 L169,140 L100,180 L31,140 L31,60 Z",
+        octagon: "M60,20 L140,20 L180,60 L180,140 L140,180 L60,180 L20,140 L20,60 Z",
+        trapezoid: "M50,30 L150,30 L190,170 L10,170 Z",
+        star: "M100,10 L121.16,70.88 L185.6,72.19 L134.24,111.12 L152.9,172.81 L100,136 L47.1,172.81 L65.76,111.12 L14.4,72.19 L78.84,70.88 Z",
+        cross: "M70,20 L130,20 L130,70 L180,70 L180,130 L130,130 L130,180 L70,180 L70,130 L20,130 L20,70 L70,70 Z",
+        arrow: "M100,20 L180,100 L140,100 L140,180 L60,180 L60,100 L20,100 Z",
+        doubleArrow: "M100,10 L170,70 L140,70 L140,130 L170,130 L100,190 L30,130 L60,130 L60,70 L30,70 Z",
+        curvedArrow: "M30,150 C30,70 90,30 150,30 L130,10 L180,40 L140,80 L150,55 C100,55 55,90 55,150 Z",
+        heart: "M100,180 C40,120 0,80 0,50 C0,20 25,0 50,0 C70,0 90,15 100,40 C110,15 130,0 150,0 C175,0 200,20 200,50 C200,80 160,120 100,180 Z",
+        note: "M70,140 C55,140 45,128 50,115 C55,102 73,102 88,115 L88,25 L145,10 L145,38 L103,48 L103,115 C95,115 85,140 70,140 Z",
+        shield: "M100,20 C140,20 180,10 180,10 C180,100 160,150 100,180 C40,150 20,100 20,10 C20,10 60,20 100,20 Z",
+        spiral: "M100,100 L101.21,100.32 L102.17,101.25 L102.65,102.65 L102.5,104.33 L101.62,106.04 L100,107.5 L97.74,108.45 L95,108.66 L92.05,107.95 L89.17,106.25 L86.72,103.56 L85,100 L84.3,95.79 L84.84,91.25 L86.74,86.74 L90,82.68 L94.5,79.47 L100,77.5 L106.15,77.06 L112.5,78.35 L118.56,81.44 L123.82,86.25 L127.77,92.56 L130,100 L130.19,108.09 L128.15,116.25 L123.86,123.86 L117.5,130.31 L109.38,135.01 L100,137.5 L89.97,137.43 L80,134.64 L70.83,129.17 L63.19,121.25 L57.74,111.32 L55,100 L55.33,88.03 L58.86,76.25 L65.53,65.53 L75,56.7 L86.74,50.5 L100,47.5 L113.91,48.08 L127.5,52.37 L139.77,60.23 L149.8,71.25 L156.75,84.79 L160,100 L159.16,115.85 L154.13,131.25 L145.08,145.08 L132.5,156.29 L117.15,163.99 L100,167.5 L82.21,166.41 L65,160.62 L49.62,150.38 L37.21,136.25 L28.76,119.09 L25,100 L26.35,80.27 L32.88,61.25 L44.32,44.32 L60,30.72 L78.97,21.52 L100,17.5 L121.68,19.1 L142.5,26.39 L160.99,39.01 L175.78,56.25 L185.73,77.03 L190,100",
+        wave: "M10,100 C50,40 70,160 100,100 C130,40 150,160 190,100",
+        burst: "M100,20 L115,65 L160,35 L135,80 L185,100 L135,120 L160,165 L115,135 L100,180 L85,135 L40,165 L65,120 L15,100 L65,80 L40,35 L85,65 Z",
+        badge: "M100,15 L122,30 L148,22 L160,45 L185,50 L185,77 L200,98 L188,122 L193,148 L170,160 L165,185 L138,185 L117,200 L93,188 L67,193 L55,170 L30,165 L30,138 L15,117 L27,93 L22,67 L45,55 L50,30 L77,30 Z",
+        lightning: "M110,10 L40,110 L95,110 L75,190 L160,85 L105,85 Z",
+        chevron: "M30,30 L110,100 L30,170 L70,170 L150,100 L70,30 Z"
+    };
 
+    function loadShapePreset(name) {
+        const path = shapePresets[name];
+        if (!path) return;
+        const appendMode = document.getElementById('appendShape').checked;
+        if (appendMode && svgInput.value.trim().length > 0) {
+            svgInput.value = svgInput.value.trim() + " " + path;
+        } else {
+            svgInput.value = path;
+        }
+        updateActiveLayerFromUI();
+        invalidateActiveCenterCache();
+        scheduleRender(true);
+    }
+
+    // Arrow keys position nudging
+    const NUDGE_STEP = 0.01, NUDGE_STEP_FAST = 0.1;
+    document.addEventListener('keydown', e => {
+        const arrowKeys = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'];
+        if (!arrowKeys.includes(e.key)) return;
+        const activeTag = document.activeElement ? document.activeElement.tagName : '';
+        if (['INPUT', 'SELECT', 'TEXTAREA', 'BUTTON'].includes(activeTag)) return;
+        if (document.getElementById('instructionModal').classList.contains('active')) return;
+        if (document.getElementById('aboutModal').classList.contains('active')) return;
+        if (activeBbox.w === 0 && activeBbox.h === 0) return;
+
+        e.preventDefault();
+        const step = e.shiftKey ? NUDGE_STEP_FAST : NUDGE_STEP;
+        commitUndoSnapshot();
+        if (e.key === 'ArrowLeft') offsetXInput.value = (parseFloat(offsetXInput.value) - step).toFixed(3);
+        if (e.key === 'ArrowRight') offsetXInput.value = (parseFloat(offsetXInput.value) + step).toFixed(3);
+        if (e.key === 'ArrowUp') offsetYInput.value = (parseFloat(offsetYInput.value) + step).toFixed(3);
+        if (e.key === 'ArrowDown') offsetYInput.value = (parseFloat(offsetYInput.value) - step).toFixed(3);
+        updateActiveLayerFromUI();
+        scheduleRender();
+        pushUndoIfChanged();
+    });
+
+    // ==========================================
+    // 8. FILE PARSING & DRAG AND DROP
+    // ==========================================
+    function processSvgFiles(files) {
+        if (!files || files.length === 0) return;
+        
+        commitUndoSnapshot();
+        
+        if (workspaceMode === 'single') {
+            const file = files[0];
+            const reader = new FileReader();
+            reader.onload = ev => {
+                const doc = new DOMParser().parseFromString(ev.target.result, "image/svg+xml");
+                const paths = Array.from(doc.querySelectorAll('path')).map(p => p.getAttribute('d')).filter(d => d).join(' ');
+                if (paths.trim().length === 0) {
+                    alert("No path data found in this SVG.");
+                    return;
+                }
+                svgInput.value = paths;
+                updateActiveLayerFromUI();
+                invalidateActiveCenterCache();
+                scheduleRender(true);
+            };
+            reader.readAsText(file);
+        } else {
+            Array.from(files).forEach(file => {
+                const reader = new FileReader();
+                reader.onload = ev => {
+                    const doc = new DOMParser().parseFromString(ev.target.result, "image/svg+xml");
+                    const paths = Array.from(doc.querySelectorAll('path')).map(p => p.getAttribute('d')).filter(d => d).join(' ');
+                    if (paths.trim().length > 0) {
+                        const cleanName = file.name.replace(/\.[^/.]+$/, "");
+                        addNewLayer(cleanName, paths);
+                    }
+                };
+                reader.readAsText(file);
+            });
+        }
+    }
+
+    fileInput.onchange = e => processSvgFiles(e.target.files);
+    fileInputSingle.onchange = e => processSvgFiles(e.target.files);
+
+    // Reliable Drag and Drop Handler (Prevents overlay flickering)
     let dragCounter = 0;
+
     window.addEventListener('dragenter', e => {
         e.preventDefault();
         dragCounter++;
-        if (dragCounter === 1) dropOverlay.classList.add('active');
+        if (dragCounter === 1) {
+            dropOverlay.classList.add('active');
+        }
     });
 
     window.addEventListener('dragleave', e => {
         e.preventDefault();
         dragCounter--;
-        if (dragCounter === 0) dropOverlay.classList.remove('active');
+        if (dragCounter <= 0) {
+            dragCounter = 0;
+            dropOverlay.classList.remove('active');
+        }
     });
 
-    window.addEventListener('dragover', e => e.preventDefault());
+    window.addEventListener('dragover', e => {
+        e.preventDefault();
+    });
 
     window.addEventListener('drop', e => {
         e.preventDefault();
@@ -1114,25 +2034,30 @@
         dropOverlay.classList.remove('active');
         
         if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-            const file = e.dataTransfer.files[0];
-            if (file.type === "image/svg+xml" || file.name.toLowerCase().endsWith('.svg')) {
-                processSvgFile(file);
+            const svgFiles = Array.from(e.dataTransfer.files).filter(f => f.type === "image/svg+xml" || f.name.toLowerCase().endsWith('.svg'));
+            if (svgFiles.length > 0) {
+                processSvgFiles(svgFiles);
             } else {
-                alert("Please drop a valid .svg file.");
+                alert("Please drop valid .svg files.");
             }
         }
     });
 
+    // Copy formatted output to clipboard
     function copyAff() {
         flushAffText();
-        affOutput.select(); document.execCommand('copy');
+        affOutput.select();
+        document.execCommand('copy');
         const btn = document.querySelector('button[onclick="copyAff()"]');
         btn.innerHTML = "Copied!";
         setTimeout(() => btn.innerHTML = "Copy Output", 1500);
     }
 
+    // Initialize application state
+    refreshThemeColors();
+    restoreAutosave();
     scheduleRender(true);
-    resizeCanvas();g
+    resizeCanvas();
 </script>
 </body>
 </html>
