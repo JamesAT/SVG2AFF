@@ -35,4 +35,13 @@ Since this project is contained within a single standalone HTML file, sharing or
 * **AI Assistance:** Portions of the code structure, layout layout logic, and feature enhancements for this project were developed with the assistance of AI tools. However, the code has been thoroughly tested, reviewed, and refined to ensure stability, proper layout constraints, and a bug-free user experience.
 * **Trademark Notice:** This tool is an independent fan-made project and has no affiliation with, endorsement from, or association with Arcaea or lowiro limited. Arcaea is a registered trademark of lowiro limited.
 
-[^1]: The playfield grid does not match the real game grid perfectly, so you may need to adjust it. An update fixing this might come later.
+## Acknowledgments & Credits
+
+* **Target Chart Editor:** Designed for workflow integration with [ArcCreate](https://github.com/Arcthesia/ArcCreate) by Arcthesia.
+* **Core Libraries & Tools:**
+  * **Text-to-Path Engine:** Powered by [opentype.js](https://opentype.js.org/) for font parsing.
+  * **Path Design Reference:** Uses concepts compatible with the [SVG Path Editor](https://yqnn.github.io/svg-path-editor/).
+  * **Path Sampling:** Built on the standard W3C SVG 1.1 Specification (`SVGPathElement.getPointAtLength()`).
+  * **Rendering & Parsing:** HTML5 Canvas 2D Context API and W3C DOMParser.
+
+ [^1]: The playfield grid does not match the real game grid perfectly, so you may need to adjust it. An update fixing this might come later.
