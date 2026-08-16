@@ -1,0 +1,41 @@
+:root {
+    --bg: #0a0a0c;
+    --panel: #141418;
+    --card: #1c1c24;
+    --viewport-bg: #050507;
+    --accent: #7654ff;
+    --accent-hover: #9175ff;
+    --text-main: #e1e1e6;
+    --text-dim: #888888;
+    --border: #2d2d35;
+    --cyan: #00f2ff;
+    --playfield: #00ff66;
+    --grid: rgba(255, 255, 255, 0.08);
+    --danger: #ff4444;
+    --warning: #ffb703;
+}
+
+/* Minimal extracted rules: keep UI working while refactor proceeds */
+body {
+    font-family: 'Inter', -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text-main);
+    margin: 0;
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+}
+
+/* Keep canvas non-selectable to avoid accidental text selection */
+canvas { user-select: none; -webkit-user-select: none; -moz-user-select: none; display: block; width: 100%; height: 100%; }
+
+/* Make textareas and inputs selectable (undo global user-select:none from inline style) */
+input, textarea, select { user-select: text; -webkit-user-select: text; }
+
+/* Basic helpers */
+.panel { background: var(--panel); display:flex; flex-direction:column; }
+.ctrl-card { background: var(--card); padding: 12px; border-radius: 8px; border: 1px solid var(--border); }
+
+/* Tooltip */
+.tooltip { position: fixed; background: var(--card); color: var(--text-main); border: 1px solid var(--border); padding: 5px 9px; border-radius: 4px; font-size: 11px; pointer-events: none; z-index: 2000; opacity: 0; display: none; transition: opacity 0.15s ease; box-shadow: 0 4px 12px rgba(0,0,0,0.3); white-space: nowrap; }
+.tooltip.visible { display:block; }
